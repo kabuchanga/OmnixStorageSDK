@@ -1,5 +1,6 @@
 namespace OmnixStorage;
 
+using System.Linq;
 using OmnixStorage.Args;
 using OmnixStorage.DataModel;
 
@@ -146,6 +147,186 @@ public static class OmnixStorageClientExtensions
             .WithObject(objectName);
 
         return client.RemoveObjectAsync(args, cancellationToken);
+    }
+
+    /// <summary>
+    /// Copies an object to a new location.
+    /// </summary>
+    /// <param name="client">The OmnixStorage client.</param>
+    /// <param name="sourceBucket">Source bucket name.</param>
+    /// <param name="sourceObject">Source object name.</param>
+    /// <param name="destinationBucket">Destination bucket name.</param>
+    /// <param name="destinationObject">Destination object name.</param>
+    /// <param name="metadata">Optional metadata to apply to the destination object.</param>
+    /// <param name="copyConditions">Optional copy condition headers.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Result containing ETag and last modified.</returns>
+    public static Task<CopyObjectResult> CopyObjectAsync(
+        this IOmnixStorageClient client,
+        string sourceBucket,
+        string sourceObject,
+        string destinationBucket,
+        string destinationObject,
+        Dictionary<string, string>? metadata = null,
+        Dictionary<string, string>? copyConditions = null,
+        CancellationToken cancellationToken = default)
+    {
+        var args = new CopyObjectArgs()
+            .WithSourceBucket(sourceBucket)
+            .WithSourceObject(sourceObject)
+            .WithDestinationBucket(destinationBucket)
+            .WithDestinationObject(destinationObject);
+
+        if (metadata != null && metadata.Count > 0)
+        {
+            args.WithMetadata(metadata);
+        }
+
+        if (copyConditions != null && copyConditions.Count > 0)
+        {
+            args.WithCopyConditions(copyConditions);
+        }
+
+        return client.CopyObjectAsync(args, cancellationToken);
+    }
+
+    /// <summary>
+    /// Removes multiple objects from a bucket in a single request.
+    /// </summary>
+    /// <param name="client">The OmnixStorage client.</param>
+    /// <param name="bucketName">Bucket name.</param>
+    /// <param name="objectNames">Object names to delete.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Result containing deleted keys and errors.</returns>
+    public static Task<RemoveObjectsResult> RemoveObjectsAsync(
+        this IOmnixStorageClient client,
+        string bucketName,
+        IEnumerable<string> objectNames,
+        CancellationToken cancellationToken = default)
+    {
+        var args = new RemoveObjectsArgs().WithBucket(bucketName);
+        args.WithObjects(objectNames.ToList());
+        return client.RemoveObjectsAsync(args, cancellationToken);
+    }
+
+    /// <summary>
+    /// Initiates a multipart upload.
+    /// </summary>
+    /// <param name="client">The OmnixStorage client.</param>
+    /// <param name="bucketName">Bucket name.</param>
+    /// <param name="objectName">Object name.</param>
+    /// <param name="contentType">Content type for the final object.</param>
+    /// <param name="metadata">Optional metadata to store with the object.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Multipart upload ID.</returns>
+    public static Task<InitiateMultipartUploadResult> InitiateMultipartUploadAsync(
+        this IOmnixStorageClient client,
+        string bucketName,
+        string objectName,
+        string? contentType = null,
+        Dictionary<string, string>? metadata = null,
+        CancellationToken cancellationToken = default)
+    {
+        var args = new InitiateMultipartUploadArgs()
+            .WithBucket(bucketName)
+            .WithObject(objectName);
+
+        if (!string.IsNullOrWhiteSpace(contentType))
+        {
+            args.WithContentType(contentType);
+        }
+
+        if (metadata != null && metadata.Count > 0)
+        {
+            foreach (var kvp in metadata)
+            {
+                args.WithMetadata(kvp.Key, kvp.Value);
+            }
+        }
+
+        return client.InitiateMultipartUploadAsync(args, cancellationToken);
+    }
+
+    /// <summary>
+    /// Uploads a part for a multipart upload.
+    /// </summary>
+    /// <param name="client">The OmnixStorage client.</param>
+    /// <param name="bucketName">Bucket name.</param>
+    /// <param name="objectName">Object name.</param>
+    /// <param name="uploadId">Upload ID.</param>
+    /// <param name="partNumber">Part number (1-10000).</param>
+    /// <param name="data">Part data stream.</param>
+    /// <param name="size">Part size in bytes.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Result containing ETag for the part.</returns>
+    public static Task<UploadPartResult> UploadPartAsync(
+        this IOmnixStorageClient client,
+        string bucketName,
+        string objectName,
+        string uploadId,
+        int partNumber,
+        Stream data,
+        long size,
+        CancellationToken cancellationToken = default)
+    {
+        var args = new UploadPartArgs()
+            .WithBucket(bucketName)
+            .WithObject(objectName)
+            .WithUploadId(uploadId)
+            .WithPartNumber(partNumber)
+            .WithData(data, size);
+
+        return client.UploadPartAsync(args, cancellationToken);
+    }
+
+    /// <summary>
+    /// Completes a multipart upload.
+    /// </summary>
+    /// <param name="client">The OmnixStorage client.</param>
+    /// <param name="bucketName">Bucket name.</param>
+    /// <param name="objectName">Object name.</param>
+    /// <param name="uploadId">Upload ID.</param>
+    /// <param name="parts">Completed parts with ETags.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Result containing ETag and location.</returns>
+    public static Task<CompleteMultipartUploadResult> CompleteMultipartUploadAsync(
+        this IOmnixStorageClient client,
+        string bucketName,
+        string objectName,
+        string uploadId,
+        IEnumerable<CompleteMultipartUploadArgs.PartInfo> parts,
+        CancellationToken cancellationToken = default)
+    {
+        var args = new CompleteMultipartUploadArgs()
+            .WithBucket(bucketName)
+            .WithObject(objectName)
+            .WithUploadId(uploadId)
+            .WithParts(parts);
+
+        return client.CompleteMultipartUploadAsync(args, cancellationToken);
+    }
+
+    /// <summary>
+    /// Aborts a multipart upload.
+    /// </summary>
+    /// <param name="client">The OmnixStorage client.</param>
+    /// <param name="bucketName">Bucket name.</param>
+    /// <param name="objectName">Object name.</param>
+    /// <param name="uploadId">Upload ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static Task AbortMultipartUploadAsync(
+        this IOmnixStorageClient client,
+        string bucketName,
+        string objectName,
+        string uploadId,
+        CancellationToken cancellationToken = default)
+    {
+        var args = new AbortMultipartUploadArgs()
+            .WithBucket(bucketName)
+            .WithObject(objectName)
+            .WithUploadId(uploadId);
+
+        return client.AbortMultipartUploadAsync(args, cancellationToken);
     }
 
     /// <summary>

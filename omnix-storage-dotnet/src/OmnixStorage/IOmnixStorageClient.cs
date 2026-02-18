@@ -53,6 +53,36 @@ public interface IOmnixStorageClient : IAsyncDisposable
     Task RemoveObjectAsync(RemoveObjectArgs args, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Copies an object to a new location.
+    /// </summary>
+    Task<CopyObjectResult> CopyObjectAsync(CopyObjectArgs args, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes multiple objects from a bucket.
+    /// </summary>
+    Task<RemoveObjectsResult> RemoveObjectsAsync(RemoveObjectsArgs args, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Initiates a multipart upload.
+    /// </summary>
+    Task<InitiateMultipartUploadResult> InitiateMultipartUploadAsync(InitiateMultipartUploadArgs args, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Uploads a part for a multipart upload.
+    /// </summary>
+    Task<UploadPartResult> UploadPartAsync(UploadPartArgs args, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Completes a multipart upload.
+    /// </summary>
+    Task<CompleteMultipartUploadResult> CompleteMultipartUploadAsync(CompleteMultipartUploadArgs args, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Aborts a multipart upload.
+    /// </summary>
+    Task AbortMultipartUploadAsync(AbortMultipartUploadArgs args, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Lists objects in a bucket.
     /// </summary>
     Task<ListObjectsResult> ListObjectsAsync(ListObjectsArgs args, CancellationToken cancellationToken = default);

@@ -140,3 +140,99 @@ public class BucketPolicyResult
     /// </summary>
     public string? PolicyJson { get; set; }
 }
+
+/// <summary>
+/// Represents the result of a copy object operation.
+/// </summary>
+public class CopyObjectResult
+{
+    /// <summary>
+    /// Gets or sets the ETag of the copied object.
+    /// </summary>
+    public string? ETag { get; set; }
+
+    /// <summary>
+    /// Gets or sets the last modified timestamp of the copied object.
+    /// </summary>
+    public DateTime? LastModified { get; set; }
+}
+
+/// <summary>
+/// Represents an error for a batch delete operation.
+/// </summary>
+public class RemoveObjectError
+{
+    /// <summary>
+    /// Gets or sets the object key that failed to delete.
+    /// </summary>
+    public string Key { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the error code.
+    /// </summary>
+    public string? Code { get; set; }
+
+    /// <summary>
+    /// Gets or sets the error message.
+    /// </summary>
+    public string? Message { get; set; }
+}
+
+/// <summary>
+/// Represents the result of a batch delete operation.
+/// </summary>
+public class RemoveObjectsResult
+{
+    /// <summary>
+    /// Gets or sets the list of deleted object keys.
+    /// </summary>
+    public List<string> Deleted { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the list of errors for objects that failed to delete.
+    /// </summary>
+    public List<RemoveObjectError> Errors { get; set; } = new();
+}
+
+/// <summary>
+/// Represents the result of initiating a multipart upload.
+/// </summary>
+public class InitiateMultipartUploadResult
+{
+    /// <summary>
+    /// Gets or sets the upload ID.
+    /// </summary>
+    public string UploadId { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Represents the result of uploading a part.
+/// </summary>
+public class UploadPartResult
+{
+    /// <summary>
+    /// Gets or sets the part number.
+    /// </summary>
+    public int PartNumber { get; set; }
+
+    /// <summary>
+    /// Gets or sets the ETag returned by the server for this part.
+    /// </summary>
+    public string? ETag { get; set; }
+}
+
+/// <summary>
+/// Represents the result of completing a multipart upload.
+/// </summary>
+public class CompleteMultipartUploadResult
+{
+    /// <summary>
+    /// Gets or sets the ETag of the completed object.
+    /// </summary>
+    public string? ETag { get; set; }
+
+    /// <summary>
+    /// Gets or sets the location returned by the server, if any.
+    /// </summary>
+    public string? Location { get; set; }
+}

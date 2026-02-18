@@ -253,6 +253,7 @@ public class OmnixStorageClient : IOmnixStorageClient
     /// <param name="content">Optional request body</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <param name="payloadHash">Optional pre-computed SHA256 hash of payload</param>
+    /// <param name="extraHeaders">Optional additional headers to include (e.g., x-amz-copy-source)</param>
     /// <returns>HTTP response message</returns>
     /// <exception cref="ServerException">Thrown when request fails after all retries</exception>
     private async Task<HttpResponseMessage> MakeRequestAsync(
@@ -260,7 +261,8 @@ public class OmnixStorageClient : IOmnixStorageClient
         string url,
         HttpContent? content = null,
         CancellationToken cancellationToken = default,
-        string? payloadHash = null)
+        string? payloadHash = null,
+        Dictionary<string, string>? extraHeaders = null)
     {
         Exception? lastException = null;
         
@@ -272,6 +274,14 @@ public class OmnixStorageClient : IOmnixStorageClient
                 {
                     Content = content
                 };
+
+                if (extraHeaders != null)
+                {
+                    foreach (var header in extraHeaders)
+                    {
+                        request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                    }
+                }
 
                 // Compute payload hash if content is provided and hash not specified
                 string contentHash;
@@ -285,13 +295,23 @@ public class OmnixStorageClient : IOmnixStorageClient
                     if (content is StreamContent streamContent)
                     {
                         var stream = await streamContent.ReadAsStreamAsync(cancellationToken);
+                        var originalPosition = stream.CanSeek ? stream.Position : 0;
                         contentHash = await AwsSignatureV4Signer.ComputePayloadHashAsync(stream);
+                        if (stream.CanSeek)
+                        {
+                            stream.Position = originalPosition;
+                        }
                     }
                     else
                     {
                         // For other content types, read as stream
                         var stream = await content.ReadAsStreamAsync(cancellationToken);
+                        var originalPosition = stream.CanSeek ? stream.Position : 0;
                         contentHash = await AwsSignatureV4Signer.ComputePayloadHashAsync(stream);
+                        if (stream.CanSeek)
+                        {
+                            stream.Position = originalPosition;
+                        }
                     }
                 }
                 else
@@ -663,6 +683,303 @@ public class OmnixStorageClient : IOmnixStorageClient
     }
 
     /// <inheritdoc/>
+    public async Task<CopyObjectResult> CopyObjectAsync(CopyObjectArgs args, CancellationToken cancellationToken = default)
+    {
+        args.Validate();
+
+        var url = $"{GetBaseUrl()}/{args.DestinationBucketName}/{args.DestinationObjectName}";
+        var copySource = $"/{args.SourceBucketName}/{Uri.EscapeDataString(args.SourceObjectName)}";
+
+        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["x-amz-copy-source"] = copySource
+        };
+
+        if (args.Metadata.Count > 0)
+        {
+            headers["x-amz-metadata-directive"] = "REPLACE";
+            foreach (var metadata in args.Metadata)
+            {
+                headers[$"x-amz-meta-{metadata.Key}"] = metadata.Value;
+            }
+        }
+        else
+        {
+            headers["x-amz-metadata-directive"] = "COPY";
+        }
+
+        foreach (var condition in args.CopyConditions)
+        {
+            headers[condition.Key] = condition.Value;
+        }
+
+        var response = await MakeRequestAsync(HttpMethod.Put, url, cancellationToken: cancellationToken, extraHeaders: headers);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new ServerException(
+                $"Failed to copy object '{args.SourceObjectName}' to '{args.DestinationObjectName}'. " +
+                $"Status={(int)response.StatusCode} {response.StatusCode}. Response: {errorBody}",
+                (int)response.StatusCode);
+        }
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        var result = new CopyObjectResult();
+
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            try
+            {
+                var doc = XDocument.Parse(body);
+                var lastModified = doc.Descendants().FirstOrDefault(e => e.Name.LocalName.Equals("LastModified", StringComparison.OrdinalIgnoreCase))?.Value;
+                var etag = doc.Descendants().FirstOrDefault(e => e.Name.LocalName.Equals("ETag", StringComparison.OrdinalIgnoreCase))?.Value;
+
+                if (!string.IsNullOrWhiteSpace(lastModified) && DateTime.TryParse(lastModified, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var parsed))
+                {
+                    result.LastModified = parsed;
+                }
+
+                if (!string.IsNullOrWhiteSpace(etag))
+                {
+                    result.ETag = etag.Trim('"');
+                }
+            }
+            catch
+            {
+                result.ETag = response.Headers.ETag?.Tag?.Trim('"');
+            }
+        }
+        else
+        {
+            result.ETag = response.Headers.ETag?.Tag?.Trim('"');
+        }
+
+        return result;
+    }
+
+    /// <inheritdoc/>
+    public async Task<RemoveObjectsResult> RemoveObjectsAsync(RemoveObjectsArgs args, CancellationToken cancellationToken = default)
+    {
+        args.Validate();
+
+        var url = $"{GetBaseUrl()}/{args.BucketName}?delete";
+
+        var deleteXml = new XDocument(
+            new XElement("Delete",
+                args.ObjectNames.Select(name =>
+                    new XElement("Object",
+                        new XElement("Key", name)))))
+            .ToString(SaveOptions.DisableFormatting);
+
+        var content = new StringContent(deleteXml, Encoding.UTF8, "application/xml");
+        var response = await MakeRequestAsync(HttpMethod.Post, url, content, cancellationToken: cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new ServerException(
+                $"Failed to remove objects from bucket '{args.BucketName}'. Status={(int)response.StatusCode} {response.StatusCode}. Response: {errorBody}",
+                (int)response.StatusCode);
+        }
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        var result = new RemoveObjectsResult();
+
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            result.Deleted.AddRange(args.ObjectNames);
+            return result;
+        }
+
+        try
+        {
+            var doc = XDocument.Parse(body);
+            var deletedElements = doc.Descendants().Where(e => e.Name.LocalName.Equals("Deleted", StringComparison.OrdinalIgnoreCase));
+            foreach (var deleted in deletedElements)
+            {
+                var key = deleted.Elements().FirstOrDefault(e => e.Name.LocalName.Equals("Key", StringComparison.OrdinalIgnoreCase))?.Value;
+                if (!string.IsNullOrWhiteSpace(key))
+                {
+                    result.Deleted.Add(key);
+                }
+            }
+
+            var errorElements = doc.Descendants().Where(e => e.Name.LocalName.Equals("Error", StringComparison.OrdinalIgnoreCase));
+            foreach (var error in errorElements)
+            {
+                result.Errors.Add(new RemoveObjectError
+                {
+                    Key = error.Elements().FirstOrDefault(e => e.Name.LocalName.Equals("Key", StringComparison.OrdinalIgnoreCase))?.Value ?? string.Empty,
+                    Code = error.Elements().FirstOrDefault(e => e.Name.LocalName.Equals("Code", StringComparison.OrdinalIgnoreCase))?.Value,
+                    Message = error.Elements().FirstOrDefault(e => e.Name.LocalName.Equals("Message", StringComparison.OrdinalIgnoreCase))?.Value
+                });
+            }
+        }
+        catch
+        {
+            result.Deleted.AddRange(args.ObjectNames);
+        }
+
+        return result;
+    }
+
+    /// <inheritdoc/>
+    public async Task<InitiateMultipartUploadResult> InitiateMultipartUploadAsync(InitiateMultipartUploadArgs args, CancellationToken cancellationToken = default)
+    {
+        args.Validate();
+
+        var url = $"{GetBaseUrl()}/{args.BucketName}/{args.ObjectName}?uploads";
+        var content = new ByteArrayContent(Array.Empty<byte>());
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(args.ContentType);
+
+        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var metadata in args.Metadata)
+        {
+            headers[$"x-amz-meta-{metadata.Key}"] = metadata.Value;
+        }
+
+        var response = await MakeRequestAsync(HttpMethod.Post, url, content, cancellationToken: cancellationToken, extraHeaders: headers);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new ServerException(
+                $"Failed to initiate multipart upload for '{args.ObjectName}'. Status={(int)response.StatusCode} {response.StatusCode}. Response: {errorBody}",
+                (int)response.StatusCode);
+        }
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            throw new ServerException("Multipart upload initiation did not return an upload ID.", (int)response.StatusCode);
+        }
+
+        try
+        {
+            var doc = XDocument.Parse(body);
+            var uploadId = doc.Descendants().FirstOrDefault(e => e.Name.LocalName.Equals("UploadId", StringComparison.OrdinalIgnoreCase))?.Value;
+
+            if (string.IsNullOrWhiteSpace(uploadId))
+            {
+                throw new ServerException("Multipart upload initiation did not return an upload ID.", (int)response.StatusCode);
+            }
+
+            return new InitiateMultipartUploadResult { UploadId = uploadId };
+        }
+        catch (Exception ex) when (ex is not ServerException)
+        {
+            throw new ServerException($"Failed to parse multipart upload initiation response. {ex.Message}", (int)response.StatusCode);
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<UploadPartResult> UploadPartAsync(UploadPartArgs args, CancellationToken cancellationToken = default)
+    {
+        args.Validate();
+
+        var queryString = $"?partNumber={args.PartNumber}&uploadId={Uri.EscapeDataString(args.UploadId)}";
+        var url = $"{GetBaseUrl()}/{args.BucketName}/{args.ObjectName}{queryString}";
+        var content = new StreamContent(args.Data!);
+
+        if (args.Data!.CanSeek)
+        {
+            var remaining = args.Data.Length - args.Data.Position;
+            if (remaining >= 0)
+            {
+                content.Headers.ContentLength = remaining;
+            }
+        }
+
+        var response = await MakeRequestAsync(HttpMethod.Put, url, content, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new ServerException(
+                $"Failed to upload part {args.PartNumber} for '{args.ObjectName}'. Status={(int)response.StatusCode} {response.StatusCode}. Response: {errorBody}",
+                (int)response.StatusCode);
+        }
+
+        var etag = response.Headers.ETag?.Tag ?? "unknown";
+
+        return new UploadPartResult
+        {
+            PartNumber = args.PartNumber,
+            ETag = etag.Trim('"')
+        };
+    }
+
+    /// <inheritdoc/>
+    public async Task<CompleteMultipartUploadResult> CompleteMultipartUploadAsync(CompleteMultipartUploadArgs args, CancellationToken cancellationToken = default)
+    {
+        args.Validate();
+
+        var queryString = $"?uploadId={Uri.EscapeDataString(args.UploadId)}";
+        var url = $"{GetBaseUrl()}/{args.BucketName}/{args.ObjectName}{queryString}";
+
+        var xml = new XDocument(
+            new XElement("CompleteMultipartUpload",
+                args.Parts.Select(part =>
+                    new XElement("Part",
+                        new XElement("PartNumber", part.PartNumber),
+                        new XElement("ETag", EnsureQuotedEtag(part.ETag))))))
+            .ToString(SaveOptions.DisableFormatting);
+
+        var content = new StringContent(xml, Encoding.UTF8, "application/xml");
+        var response = await MakeRequestAsync(HttpMethod.Post, url, content, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new ServerException(
+                $"Failed to complete multipart upload for '{args.ObjectName}'. Status={(int)response.StatusCode} {response.StatusCode}. Response: {errorBody}",
+                (int)response.StatusCode);
+        }
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        var result = new CompleteMultipartUploadResult();
+
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            try
+            {
+                var doc = XDocument.Parse(body);
+                result.ETag = doc.Descendants().FirstOrDefault(e => e.Name.LocalName.Equals("ETag", StringComparison.OrdinalIgnoreCase))?.Value?.Trim('"');
+                result.Location = doc.Descendants().FirstOrDefault(e => e.Name.LocalName.Equals("Location", StringComparison.OrdinalIgnoreCase))?.Value;
+            }
+            catch
+            {
+                result.ETag = response.Headers.ETag?.Tag?.Trim('"');
+            }
+        }
+        else
+        {
+            result.ETag = response.Headers.ETag?.Tag?.Trim('"');
+        }
+
+        return result;
+    }
+
+    /// <inheritdoc/>
+    public async Task AbortMultipartUploadAsync(AbortMultipartUploadArgs args, CancellationToken cancellationToken = default)
+    {
+        args.Validate();
+
+        var queryString = $"?uploadId={Uri.EscapeDataString(args.UploadId)}";
+        var url = $"{GetBaseUrl()}/{args.BucketName}/{args.ObjectName}{queryString}";
+        var response = await MakeRequestAsync(HttpMethod.Delete, url, cancellationToken: cancellationToken);
+
+        if (!response.IsSuccessStatusCode && response.StatusCode != System.Net.HttpStatusCode.NoContent)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new ServerException(
+                $"Failed to abort multipart upload for '{args.ObjectName}'. Status={(int)response.StatusCode} {response.StatusCode}. Response: {errorBody}",
+                (int)response.StatusCode);
+        }
+    }
+
+    /// <inheritdoc/>
     public async Task<ListObjectsResult> ListObjectsAsync(ListObjectsArgs args, CancellationToken cancellationToken = default)
     {
         args.Validate();
@@ -886,6 +1203,22 @@ public class OmnixStorageClient : IOmnixStorageClient
     }
 
     #endregion
+
+    private static string EnsureQuotedEtag(string etag)
+    {
+        if (string.IsNullOrWhiteSpace(etag))
+        {
+            return "\"\"";
+        }
+
+        var trimmed = etag.Trim();
+        if (trimmed.StartsWith("\"", StringComparison.Ordinal) && trimmed.EndsWith("\"", StringComparison.Ordinal))
+        {
+            return trimmed;
+        }
+
+        return $"\"{trimmed}\"";
+    }
 
     /// <summary>
     /// Generates an AWS SigV4 presigned URL for direct object access.
