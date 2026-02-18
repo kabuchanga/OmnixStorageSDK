@@ -1,0 +1,422 @@
+Metadata-Version: 2.1
+Name: omnix-storage
+Version: 1.0.0
+Summary: S3-compatible Python SDK for OmnixStorage distributed object storage
+Home-page: https://github.com/kegeo-solutions/omnix-storage-py
+Author: Kegeo Solutions Ltd
+Author-email: Kegeo Solutions Ltd <info@kegeo.com>
+License: Apache-2.0
+Project-URL: Homepage, https://github.com/kegeos-io/omnix-storage-py
+Project-URL: Documentation, https://kegeos-omnixstorage.readthedocs.io/
+Project-URL: Repository, https://github.com/kegeos-io/omnix-storage-py
+Project-URL: Issues, https://github.com/kegeos-io/omnix-storage-py/issues
+Keywords: object-storage,s3,distributed-storage,omnix,storage-sdk
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+Provides-Extra: test
+
+# OmnixStorage Python SDK
+
+A high-performance, S3-compatible Python SDK for OmnixStorage distributed object storage system.
+
+## Features
+
+- **S3-Compatible API**: Native S3 API support with full compatibility
+- **Async/Await Support**: Full async support using asyncio
+- **Connection Pooling**: Efficient connection management with HTTP connection pooling
+- **Automatic Retries**: Built-in retry logic for transient failures
+- **JWT Authentication**: Secure JWT-based authentication
+- **Type Hints**: Full type annotations for better IDE support
+- **Comprehensive Error Handling**: Specific exception types for different error scenarios
+
+## Installation
+
+### Via PyPI
+
+```bash
+pip install omnix-storage
+```
+
+### From Source
+
+```bash
+git clone https://github.com/kegeo-solutions/omnix-storage-py.git
+cd omnix-storage-py
+pip install -e .
+```
+
+### Development Installation
+
+```bash
+pip install -e ".[dev]"
+```
+
+## Quick Start
+
+### Basic Usage
+
+```python
+import asyncio
+from omnixstorage import OmnixClient
+
+async def main():
+    # Initialize the client
+    client = OmnixClient(
+        endpoint="omnix.example.com:9000",
+        access_key="your-access-key",
+        secret_key="your-secret-key",
+        use_ssl=True
+    )
+    
+    # Create a bucket
+    await client.make_bucket("my-bucket")
+    
+    # Upload a file
+    with open("local-file.txt", "rb") as f:
+        result = await client.put_object(
+            bucket_name="my-bucket",
+            object_name="remote-file.txt",
+            data=f,
+            content_type="text/plain"
+        )
+        print(f"Upload successful: {result.etag}")
+    
+    # Download a file
+    with open("downloaded-file.txt", "wb") as f:
+        metadata = await client.get_object(
+            bucket_name="my-bucket",
+            object_name="remote-file.txt",
+            output=f
+        )
+        print(f"Downloaded: {metadata.name} ({metadata.size} bytes)")
+    
+    # List objects
+    result = await client.list_objects(
+        bucket_name="my-bucket",
+        prefix="remote-"
+    )
+    for obj in result.objects:
+        print(f"- {obj.name} ({obj.size} bytes)")
+    
+    # Get object metadata
+    metadata = await client.stat_object(
+        bucket_name="my-bucket",
+        object_name="remote-file.txt"
+    )
+    print(f"ETag: {metadata.etag}, Size: {metadata.size}")
+    
+    # Delete an object
+    await client.remove_object(
+        bucket_name="my-bucket",
+        object_name="remote-file.txt"
+    )
+    
+    # Close the client
+    await client.close()
+
+# Run async code
+asyncio.run(main())
+```
+
+### Using Context Manager
+
+```python
+import asyncio
+from omnixstorage import OmnixClient
+
+async def main():
+    async with OmnixClient(
+        endpoint="omnix.example.com:9000",
+        access_key="your-access-key",
+        secret_key="your-secret-key"
+    ) as client:
+        # Use client...
+        buckets = await client.list_buckets()
+        for bucket in buckets:
+            print(f"Bucket: {bucket.name}")
+
+asyncio.run(main())
+```
+
+## API Reference
+
+### Client Initialization
+
+```python
+client = OmnixClient(
+    endpoint="host:port",           # Server address and port
+    access_key="your-access-key",   # Access key for auth
+    secret_key="your-secret-key",   # Secret key for auth
+    use_ssl=False,                  # Use HTTPS (default: False)
+    request_timeout=30,             # Request timeout in seconds
+    max_retries=3                   # Max retry attempts
+)
+```
+
+### Bucket Operations
+
+#### Create Bucket
+```python
+await client.make_bucket("bucket-name")
+```
+
+#### Check Bucket Exists
+```python
+exists = await client.bucket_exists("bucket-name")
+```
+
+#### List Buckets
+```python
+buckets = await client.list_buckets()
+for bucket in buckets:
+    print(f"{bucket.name} created at {bucket.creation_date}")
+```
+
+#### Remove Bucket
+```python
+await client.remove_bucket("bucket-name")  # Must be empty
+```
+
+### Object Operations
+
+#### Upload Object
+```python
+with open("file.txt", "rb") as f:
+    result = await client.put_object(
+        bucket_name="my-bucket",
+        object_name="folder/file.txt",
+        data=f,
+        content_type="text/plain",
+        metadata={"key": "value"}  # Optional custom metadata
+    )
+```
+
+#### Download Object
+```python
+with open("downloaded.txt", "wb") as f:
+    metadata = await client.get_object(
+        bucket_name="my-bucket",
+        object_name="folder/file.txt",
+        output=f
+    )
+    print(f"Size: {metadata.size}, ETag: {metadata.etag}")
+```
+
+#### Get Object Metadata
+```python
+metadata = await client.stat_object(
+    bucket_name="my-bucket",
+    object_name="folder/file.txt"
+)
+print(f"Name: {metadata.name}, Size: {metadata.size}")
+```
+
+#### Delete Object
+```python
+await client.remove_object(
+    bucket_name="my-bucket",
+    object_name="folder/file.txt"
+)
+```
+
+#### List Objects
+```python
+# Simple listing
+result = await client.list_objects(bucket_name="my-bucket")
+for obj in result.objects:
+    print(f"- {obj.name} ({obj.size} bytes)")
+
+# With options
+result = await client.list_objects(
+    bucket_name="my-bucket",
+    prefix="folder/",
+    delimiter="/",
+    max_keys=100
+)
+
+# Handle pagination
+if result.is_truncated:
+    next_page = await client.list_objects(
+        bucket_name="my-bucket",
+        continuation_token=result.continuation_token
+    )
+```
+
+#### Generate Presigned URL
+```python
+presigned = await client.presigned_get_object(
+    bucket_name="my-bucket",
+    object_name="folder/file.txt",
+    expires_in_seconds=3600  # 1 hour
+)
+print(f"URL: {presigned.url}")
+print(f"Expires at: {presigned.expires_at}")
+```
+
+### Health Check
+```python
+is_healthy = await client.health()
+if is_healthy:
+    print("Server is healthy")
+```
+
+## Error Handling
+
+The SDK provides specific exception types for different error scenarios:
+
+```python
+from omnixstorage import (
+    OmnixStorageException,
+    BucketNotFoundException,
+    ObjectNotFoundException,
+    AuthenticationException,
+    ServerException,
+    AccessDeniedException
+)
+
+try:
+    result = await client.get_object(
+        bucket_name="my-bucket",
+        object_name="file.txt",
+        output=f
+    )
+except BucketNotFoundException:
+    print("Bucket does not exist")
+except ObjectNotFoundException:
+    print("Object does not exist")
+except AuthenticationException:
+    print("Authentication failed")
+except ServerException as e:
+    print(f"Server error: {e.status_code}")
+except OmnixStorageException as e:
+    print(f"OmnixStorage error: {e}")
+```
+
+## Advanced Configuration
+
+### Custom HTTP Client Settings
+
+```python
+client = OmnixClient(
+    endpoint="omnix.example.com:9000",
+    access_key="key",
+    secret_key="secret",
+    request_timeout=60,      # 60-second timeout
+    max_retries=5            # Retry up to 5 times
+)
+```
+
+### Batch Operations
+
+```python
+async def upload_files(client, bucket_name, file_paths):
+    import asyncio
+    
+    tasks = [
+        client.put_object(
+            bucket_name=bucket_name,
+            object_name=f"files/{path.split('/')[-1]}",
+            data=open(path, "rb")
+        )
+        for path in file_paths
+    ]
+    
+    results = await asyncio.gather(*tasks)
+    return results
+```
+
+## Testing
+
+Run the test suite:
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=omnixstorage
+
+# Run specific test file
+pytest tests/test_client.py
+
+# Run with verbose output
+pytest -v
+```
+
+## Development
+
+### Install Development Dependencies
+
+```bash
+pip install -e ".[dev]"
+```
+
+### Code Formatting
+
+```bash
+# Format code with black
+black src/ tests/
+
+# Sort imports with isort
+isort src/ tests/
+
+# Lint with flake8
+flake8 src/ tests/
+
+# Type check with mypy
+mypy src/
+```
+
+### Building
+
+```bash
+# Build distribution packages
+python -m build
+
+# Install from local build
+pip install dist/omnix_storage-1.0.0-py3-none-any.whl
+```
+
+## Documentation
+
+For detailed documentation, see:
+- [API Reference](./docs/api-reference.md)
+- [Examples](./examples/)
+- [Troubleshooting](./docs/troubleshooting.md)
+
+## Performance Tips
+
+1. **Reuse Client**: Create a single client instance and reuse it
+2. **Batch Operations**: Use `asyncio.gather()` for multiple concurrent operations
+3. **Connection Pooling**: HTTP connections are automatically pooled
+4. **Large Files**: Stream large files to avoid memory issues
+
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+
+## License
+
+Apache License 2.0 - See [LICENSE](./LICENSE) file for details.
+
+## Support
+
+- Documentation: https://docs.omnix.io
+- Issues: https://github.com/kegeo-solutions/omnix-storage-py/issues
+- Email: support@kegeo.com
+
+## Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md) for version history.

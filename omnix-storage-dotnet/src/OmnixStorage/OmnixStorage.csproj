@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    
+    <PackageId>OmnixStorage</PackageId>
+    <Version>1.0.2</Version>
+    <Title>OmnixStorage SDK</Title>
+    <Authors>Kegeo Solutions Ltd</Authors>
+    <Description>S3-compatible SDK for OmnixStorage distributed object storage with erasure coding and replication support</Description>
+    <PackageProjectUrl>https://github.com/kegeos-io/omnix-storage-dotnet</PackageProjectUrl>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/kegeos-io/omnix-storage-dotnet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>object-storage;s3;distributed-storage;erasure-coding;replication</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- No external dependencies - using only standard .NET libraries -->
+  </ItemGroup>
+
+</Project>

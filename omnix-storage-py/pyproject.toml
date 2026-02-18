@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omnix-storage"
+version = "1.0.0"
+description = "S3-compatible Python SDK for OmnixStorage distributed object storage"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Kegeo Solutions Ltd", email = "info@kegeo.com"}
+]
+keywords = [
+    "object-storage",
+    "s3",
+    "distributed-storage",
+    "omnix",
+    "storage-sdk"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+Homepage = "https://github.com/kegeos-io/omnix-storage-py"
+Documentation = "https://kegeos-omnixstorage.readthedocs.io/"
+Repository = "https://github.com/kegeos-io/omnix-storage-py"
+Issues = "https://github.com/kegeos-io/omnix-storage-py/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/omnixstorage"]

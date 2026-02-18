@@ -1,0 +1,44 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build OmnixStorage SDK",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"OmnixStorage.sln"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			]
+		},
+		{
+			"label": "Build OmnixStorage SDK Solution",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"OmnixStorage.sln"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			]
+		},
+		{
+			"label": "Build OmnixStorage SDK",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"OmnixStorage.sln"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			]
+		}
+	]
+}

@@ -1,0 +1,15 @@
+README.md
+pyproject.toml
+setup.py
+src/omnix_storage.egg-info/PKG-INFO
+src/omnix_storage.egg-info/SOURCES.txt
+src/omnix_storage.egg-info/dependency_links.txt
+src/omnix_storage.egg-info/entry_points.txt
+src/omnix_storage.egg-info/requires.txt
+src/omnix_storage.egg-info/top_level.txt
+src/omnixstorage/__init__.py
+src/omnixstorage/_http.py
+src/omnixstorage/_signer.py
+src/omnixstorage/client.py
+src/omnixstorage/error.py
+src/omnixstorage/models.py

@@ -1,0 +1,39 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "OmnixStorage.Tests/1.0.0": {
+        "dependencies": {
+          "OmnixStorage": "1.0.2"
+        },
+        "runtime": {
+          "OmnixStorage.Tests.dll": {}
+        }
+      },
+      "OmnixStorage/1.0.2": {
+        "runtime": {
+          "OmnixStorage.dll": {
+            "assemblyVersion": "1.0.2.0",
+            "fileVersion": "1.0.2.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "OmnixStorage.Tests/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "OmnixStorage/1.0.2": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "/z52nvOpSk8=",
+  "success": true,
+  "projectFilePath": "E:\\google_drive\\code\\donet\\OmnixStorageSDK\\omnix-storage-dotnet\\tests\\OmnixStorage.Tests\\OmnixStorage.Tests.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Kabuchanga\\.nuget\\packages\\omnixstorage\\1.0.2\\omnixstorage.1.0.2.nupkg.sha512"
+  ],
+  "logs": []
+}

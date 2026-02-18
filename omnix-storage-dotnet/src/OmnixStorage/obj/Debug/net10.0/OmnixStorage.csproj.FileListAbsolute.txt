@@ -1,0 +1,13 @@
+E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-dotnet\src\OmnixStorage\bin\Debug\net10.0\OmnixStorage.deps.json
+E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-dotnet\src\OmnixStorage\bin\Debug\net10.0\OmnixStorage.dll
+E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-dotnet\src\OmnixStorage\bin\Debug\net10.0\OmnixStorage.pdb
+E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-dotnet\src\OmnixStorage\bin\Debug\net10.0\OmnixStorage.xml
+E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-dotnet\src\OmnixStorage\obj\Debug\net10.0\OmnixStorage.GeneratedMSBuildEditorConfig.editorconfig
+E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-dotnet\src\OmnixStorage\obj\Debug\net10.0\OmnixStorage.AssemblyInfoInputs.cache
+E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-dotnet\src\OmnixStorage\obj\Debug\net10.0\OmnixStorage.AssemblyInfo.cs
+E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-dotnet\src\OmnixStorage\obj\Debug\net10.0\OmnixStorage.csproj.CoreCompileInputs.cache
+E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-dotnet\src\OmnixStorage\obj\Debug\net10.0\OmnixStorage.dll
+E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-dotnet\src\OmnixStorage\obj\Debug\net10.0\refint\OmnixStorage.dll
+E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-dotnet\src\OmnixStorage\obj\Debug\net10.0\OmnixStorage.xml
+E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-dotnet\src\OmnixStorage\obj\Debug\net10.0\OmnixStorage.pdb
+E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-dotnet\src\OmnixStorage\obj\Debug\net10.0\ref\OmnixStorage.dll

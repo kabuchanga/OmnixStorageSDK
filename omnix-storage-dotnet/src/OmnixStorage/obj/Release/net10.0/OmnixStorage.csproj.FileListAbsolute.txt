@@ -1,0 +1,14 @@
+e:\google_drive\code\donet\OmnixStorage\sdk\omnix-storage-dotnet\src\OmnixStorage\bin\Release\net10.0\OmnixStorage.deps.json
+e:\google_drive\code\donet\OmnixStorage\sdk\omnix-storage-dotnet\src\OmnixStorage\bin\Release\net10.0\OmnixStorage.dll
+e:\google_drive\code\donet\OmnixStorage\sdk\omnix-storage-dotnet\src\OmnixStorage\bin\Release\net10.0\OmnixStorage.pdb
+e:\google_drive\code\donet\OmnixStorage\sdk\omnix-storage-dotnet\src\OmnixStorage\bin\Release\net10.0\OmnixStorage.xml
+e:\google_drive\code\donet\OmnixStorage\sdk\omnix-storage-dotnet\src\OmnixStorage\obj\Release\net10.0\OmnixStorage.GeneratedMSBuildEditorConfig.editorconfig
+e:\google_drive\code\donet\OmnixStorage\sdk\omnix-storage-dotnet\src\OmnixStorage\obj\Release\net10.0\OmnixStorage.AssemblyInfoInputs.cache
+e:\google_drive\code\donet\OmnixStorage\sdk\omnix-storage-dotnet\src\OmnixStorage\obj\Release\net10.0\OmnixStorage.AssemblyInfo.cs
+e:\google_drive\code\donet\OmnixStorage\sdk\omnix-storage-dotnet\src\OmnixStorage\obj\Release\net10.0\OmnixStorage.csproj.CoreCompileInputs.cache
+e:\google_drive\code\donet\OmnixStorage\sdk\omnix-storage-dotnet\src\OmnixStorage\obj\Release\net10.0\OmnixStorage.sourcelink.json
+e:\google_drive\code\donet\OmnixStorage\sdk\omnix-storage-dotnet\src\OmnixStorage\obj\Release\net10.0\OmnixStorage.dll
+e:\google_drive\code\donet\OmnixStorage\sdk\omnix-storage-dotnet\src\OmnixStorage\obj\Release\net10.0\refint\OmnixStorage.dll
+e:\google_drive\code\donet\OmnixStorage\sdk\omnix-storage-dotnet\src\OmnixStorage\obj\Release\net10.0\OmnixStorage.xml
+e:\google_drive\code\donet\OmnixStorage\sdk\omnix-storage-dotnet\src\OmnixStorage\obj\Release\net10.0\OmnixStorage.pdb
+e:\google_drive\code\donet\OmnixStorage\sdk\omnix-storage-dotnet\src\OmnixStorage\obj\Release\net10.0\ref\OmnixStorage.dll
