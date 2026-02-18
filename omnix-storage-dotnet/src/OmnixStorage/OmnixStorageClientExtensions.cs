@@ -150,6 +150,71 @@ public static class OmnixStorageClientExtensions
     }
 
     /// <summary>
+    /// Ensures a bucket exists, creating it with retries if needed.
+    /// </summary>
+    /// <param name="client">The OmnixStorage client.</param>
+    /// <param name="bucketName">Bucket name.</param>
+    /// <param name="maxAttempts">Maximum create attempts.</param>
+    /// <param name="delaySeconds">Delay between attempts in seconds.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static async Task EnsureBucketExistsAsync(
+        this IOmnixStorageClient client,
+        string bucketName,
+        int maxAttempts = 3,
+        int delaySeconds = 2,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(bucketName))
+        {
+            throw new ArgumentException("Bucket name is required.", nameof(bucketName));
+        }
+
+        if (await client.BucketExistsAsync(bucketName, cancellationToken))
+        {
+            return;
+        }
+
+        var attempts = Math.Max(1, maxAttempts);
+        var delay = TimeSpan.FromSeconds(Math.Max(1, delaySeconds));
+
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            try
+            {
+                await client.MakeBucketAsync(bucketName, cancellationToken);
+                return;
+            }
+            catch when (attempt < attempts)
+            {
+                await Task.Delay(delay, cancellationToken);
+            }
+        }
+
+        throw new ServerException($"Failed to create bucket '{bucketName}' after {attempts} attempts.", 500);
+    }
+
+    /// <summary>
+    /// Performs a connectivity check by listing buckets.
+    /// </summary>
+    /// <param name="client">The OmnixStorage client.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if list buckets succeeds, otherwise false.</returns>
+    public static async Task<bool> HealthCheckBucketsAsync(
+        this IOmnixStorageClient client,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await client.ListBucketsAsync(cancellationToken);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Copies an object to a new location.
     /// </summary>
     /// <param name="client">The OmnixStorage client.</param>
