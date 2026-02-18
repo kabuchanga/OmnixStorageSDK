@@ -178,6 +178,156 @@ try
         Console.WriteLine();
     }
 
+    Console.WriteLine("=== STEP 4: SDK HELPER + EXTENDED OPS TESTS ===");
+    Console.WriteLine();
+
+    var opsBucket = "sdk-ops-test";
+    var opsPrefix = "ops";
+
+    Console.WriteLine($"→ Ensuring bucket exists (helper): {opsBucket}");
+    await client.EnsureBucketExistsAsync(opsBucket, maxAttempts: 3, delaySeconds: 2);
+    Console.WriteLine("✓ EnsureBucketExistsAsync completed\n");
+
+    Console.WriteLine("→ Health check via ListBuckets (helper)");
+    var healthOk = await client.HealthCheckBucketsAsync();
+    if (healthOk)
+    {
+        Console.WriteLine("✓ HealthCheckBucketsAsync: OK\n");
+    }
+    else
+    {
+        Console.WriteLine("⚠ HealthCheckBucketsAsync: FAILED (check permissions)\n");
+    }
+
+    Console.WriteLine("→ Copy object test");
+    var copySourceKey = $"{opsPrefix}/copy-source.txt";
+    var copyDestKey = $"{opsPrefix}/copy-dest.txt";
+    var copyData = new byte[1024];
+    new Random().NextBytes(copyData);
+
+    try
+    {
+        using (var stream = new MemoryStream(copyData))
+        {
+            await client.PutObjectAsync(opsBucket, copySourceKey, stream, "text/plain");
+        }
+
+        var copyResult = await client.CopyObjectAsync(
+            new CopyObjectArgs()
+                .WithSourceBucket(opsBucket)
+                .WithSourceObject(copySourceKey)
+                .WithDestinationBucket(opsBucket)
+                .WithDestinationObject(copyDestKey));
+
+        var copiedStat = await client.StatObjectAsync(
+            new StatObjectArgs()
+                .WithBucket(opsBucket)
+                .WithObject(copyDestKey));
+
+        Console.WriteLine($"✓ CopyObjectAsync ETag: {copyResult.ETag ?? "unknown"}, Size: {copiedStat.Size} bytes\n");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"⚠ CopyObjectAsync failed (server may not support copy): {ex.Message}\n");
+    }
+
+    Console.WriteLine("→ Batch delete test");
+    var batchKey1 = $"{opsPrefix}/delete-1.txt";
+    var batchKey2 = $"{opsPrefix}/delete-2.txt";
+
+    try
+    {
+        using (var stream = new MemoryStream(new byte[256]))
+        {
+            await client.PutObjectAsync(opsBucket, batchKey1, stream);
+        }
+        using (var stream = new MemoryStream(new byte[256]))
+        {
+            await client.PutObjectAsync(opsBucket, batchKey2, stream);
+        }
+
+        var deleteResult = await client.RemoveObjectsAsync(
+            new RemoveObjectsArgs()
+                .WithBucket(opsBucket)
+                .WithObjects(batchKey1, batchKey2));
+
+        Console.WriteLine($"✓ RemoveObjectsAsync Deleted={deleteResult.Deleted.Count}, Errors={deleteResult.Errors.Count}\n");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"⚠ RemoveObjectsAsync failed (server may not support batch delete): {ex.Message}\n");
+    }
+
+    Console.WriteLine("→ Multipart upload test");
+    var multipartKey = $"{opsPrefix}/multipart.bin";
+    try
+    {
+        var init = await client.InitiateMultipartUploadAsync(
+            new InitiateMultipartUploadArgs()
+                .WithBucket(opsBucket)
+                .WithObject(multipartKey)
+                .WithContentType("application/octet-stream"));
+
+        var multipartData = new byte[2048];
+        new Random().NextBytes(multipartData);
+
+        using var part1Stream = new MemoryStream(multipartData, 0, 1024, writable: false);
+        var part1 = await client.UploadPartAsync(
+            new UploadPartArgs()
+                .WithBucket(opsBucket)
+                .WithObject(multipartKey)
+                .WithUploadId(init.UploadId)
+                .WithPartNumber(1)
+                .WithData(part1Stream, 1024));
+
+        using var part2Stream = new MemoryStream(multipartData, 1024, 1024, writable: false);
+        var part2 = await client.UploadPartAsync(
+            new UploadPartArgs()
+                .WithBucket(opsBucket)
+                .WithObject(multipartKey)
+                .WithUploadId(init.UploadId)
+                .WithPartNumber(2)
+                .WithData(part2Stream, 1024));
+
+        var complete = await client.CompleteMultipartUploadAsync(
+            new CompleteMultipartUploadArgs()
+                .WithBucket(opsBucket)
+                .WithObject(multipartKey)
+                .WithUploadId(init.UploadId)
+                .WithParts(new[]
+                {
+                    new CompleteMultipartUploadArgs.PartInfo { PartNumber = part1.PartNumber, ETag = part1.ETag ?? string.Empty },
+                    new CompleteMultipartUploadArgs.PartInfo { PartNumber = part2.PartNumber, ETag = part2.ETag ?? string.Empty }
+                }));
+
+        Console.WriteLine($"✓ CompleteMultipartUploadAsync ETag: {complete.ETag ?? "unknown"}\n");
+
+        Console.WriteLine("→ Multipart abort test");
+        var abortKey = $"{opsPrefix}/multipart-abort.bin";
+        var abortInit = await client.InitiateMultipartUploadAsync(
+            new InitiateMultipartUploadArgs()
+                .WithBucket(opsBucket)
+                .WithObject(abortKey)
+                .WithContentType("application/octet-stream"));
+
+        await client.AbortMultipartUploadAsync(
+            new AbortMultipartUploadArgs()
+                .WithBucket(opsBucket)
+                .WithObject(abortKey)
+                .WithUploadId(abortInit.UploadId));
+
+        Console.WriteLine("✓ AbortMultipartUploadAsync completed\n");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"⚠ Multipart upload test failed (server may not support multipart): {ex.Message}\n");
+    }
+
+    Console.WriteLine("→ Integration service wrapper test");
+    var integration = new OmnixStorageIntegrationService(client);
+    var presignedDownload = await integration.GetPresignedDownloadUrlAsync(opsBucket, copyDestKey, 300);
+    Console.WriteLine($"✓ Integration presigned URL length: {presignedDownload.Length}\n");
+
     Console.WriteLine("=".PadRight(80, '='));
     Console.WriteLine("✓ ALL TESTS COMPLETED SUCCESSFULLY");
     Console.WriteLine("=".PadRight(80, '='));

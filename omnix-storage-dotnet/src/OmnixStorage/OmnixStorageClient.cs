@@ -713,7 +713,10 @@ public class OmnixStorageClient : IOmnixStorageClient
             headers[condition.Key] = condition.Value;
         }
 
-        var response = await MakeRequestAsync(HttpMethod.Put, url, cancellationToken: cancellationToken, extraHeaders: headers);
+        // Some deployments reject empty bodies; send a 1-byte payload for compatibility.
+        var content = new ByteArrayContent(new byte[] { 0 });
+        content.Headers.ContentLength = 1;
+        var response = await MakeRequestAsync(HttpMethod.Put, url, content, cancellationToken: cancellationToken, extraHeaders: headers);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -830,7 +833,9 @@ public class OmnixStorageClient : IOmnixStorageClient
         args.Validate();
 
         var url = $"{GetBaseUrl()}/{args.BucketName}/{args.ObjectName}?uploads";
-        var content = new ByteArrayContent(Array.Empty<byte>());
+        // Some deployments reject empty bodies; send a 1-byte payload for compatibility.
+        var content = new ByteArrayContent(new byte[] { 0 });
+        content.Headers.ContentLength = 1;
         content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(args.ContentType);
 
         var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

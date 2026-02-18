@@ -9,11 +9,23 @@ public class OmnixStorageIntegrationService
 {
     private readonly IOmnixStorageClient _client;
 
+    /// <summary>
+    /// Initializes a new integration service wrapper.
+    /// </summary>
+    /// <param name="client">The OmnixStorage client.</param>
     public OmnixStorageIntegrationService(IOmnixStorageClient client)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
     }
 
+    /// <summary>
+    /// Generates a presigned PUT URL for uploads.
+    /// </summary>
+    /// <param name="bucketName">Bucket name.</param>
+    /// <param name="objectKey">Object key.</param>
+    /// <param name="expirySeconds">URL expiry in seconds.</param>
+    /// <param name="contentType">Optional content type enforcement.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<string> GetPresignedUploadUrlAsync(
         string bucketName,
         string objectKey,
@@ -35,6 +47,13 @@ public class OmnixStorageIntegrationService
         return result.Url;
     }
 
+    /// <summary>
+    /// Generates a presigned GET URL for downloads.
+    /// </summary>
+    /// <param name="bucketName">Bucket name.</param>
+    /// <param name="objectKey">Object key.</param>
+    /// <param name="expirySeconds">URL expiry in seconds.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<string> GetPresignedDownloadUrlAsync(
         string bucketName,
         string objectKey,
@@ -51,6 +70,14 @@ public class OmnixStorageIntegrationService
         return result.Url;
     }
 
+    /// <summary>
+    /// Uploads a file stream to object storage.
+    /// </summary>
+    /// <param name="bucketName">Bucket name.</param>
+    /// <param name="objectKey">Object key.</param>
+    /// <param name="fileContent">File content stream.</param>
+    /// <param name="contentType">Optional content type header.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<string> UploadFileAsync(
         string bucketName,
         string objectKey,
@@ -72,6 +99,13 @@ public class OmnixStorageIntegrationService
         return objectKey;
     }
 
+    /// <summary>
+    /// Deletes an object, optionally ignoring not found errors.
+    /// </summary>
+    /// <param name="bucketName">Bucket name.</param>
+    /// <param name="objectKey">Object key.</param>
+    /// <param name="ignoreNotFound">Ignore 404 errors if true.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task DeleteFileAsync(
         string bucketName,
         string objectKey,
@@ -96,11 +130,23 @@ public class OmnixStorageIntegrationService
         }
     }
 
+    /// <summary>
+    /// Checks whether a bucket exists.
+    /// </summary>
+    /// <param name="bucketName">Bucket name.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<bool> BucketExistsAsync(string bucketName, CancellationToken cancellationToken = default)
     {
         return _client.BucketExistsAsync(bucketName, cancellationToken);
     }
 
+    /// <summary>
+    /// Ensures a bucket exists, creating it with retries if needed.
+    /// </summary>
+    /// <param name="bucketName">Bucket name.</param>
+    /// <param name="maxAttempts">Maximum create attempts.</param>
+    /// <param name="delaySeconds">Delay between attempts in seconds.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task EnsureBucketExistsAsync(
         string bucketName,
         int maxAttempts = 3,
@@ -110,6 +156,10 @@ public class OmnixStorageIntegrationService
         return _client.EnsureBucketExistsAsync(bucketName, maxAttempts, delaySeconds, cancellationToken);
     }
 
+    /// <summary>
+    /// Performs a connectivity check using list buckets.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public Task<bool> HealthCheckAsync(CancellationToken cancellationToken = default)
     {
         return _client.HealthCheckBucketsAsync(cancellationToken);
