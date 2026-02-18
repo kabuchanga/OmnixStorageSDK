@@ -341,8 +341,13 @@ try
     // ===== PRESIGNED URL BROWSER TEST =====
     Console.WriteLine();
     Console.WriteLine("=".PadRight(80, '='));
-    Console.WriteLine("Presigned URL Browser Test - Image Access");
+    Console.WriteLine("PRESIGNED URL BROWSER TEST - Public Endpoint Required");
     Console.WriteLine("=".PadRight(80, '='));
+    Console.WriteLine();
+
+    Console.WriteLine("Key Lesson: Use OmnixStorageClientFactory for presigned URLs!");
+    Console.WriteLine("❌ Internal endpoint: storage.kegeosapps.com:443 → Won't work in browser");
+    Console.WriteLine("✅ Public endpoint: https://storage-public.kegeosapps.com → Works in browser");
     Console.WriteLine();
 
     string photoTestBucket = "photo-test";
@@ -371,21 +376,46 @@ try
         }
         Console.WriteLine($"✓ Photo uploaded successfully\n");
 
-        // Generate presigned GET URL
-        Console.WriteLine("→ Generating presigned GET URL (valid for 1 hour)...\n");
-        var presignedResult = await client.PresignedGetObjectAsync(
+        // ❌ WRONG WAY - Using internal endpoint (won't work in browser)
+        Console.WriteLine("=== PRESIGNED URL GENERATION - WRONG vs RIGHT ===\n");
+        
+        Console.WriteLine("❌ WRONG: Using internal endpoint client");
+        var wrongUrlResult = await client.PresignedGetObjectAsync(
+            new PresignedGetObjectArgs()
+                .WithBucket(photoTestBucket)
+                .WithObject(photoObjectKey)
+                .WithExpiry(3600));
+        
+        string wrongUrl = wrongUrlResult.Url;
+        Console.WriteLine($"   URL: {wrongUrl.Substring(0, Math.Min(100, wrongUrl.Length))}...");
+        Console.WriteLine("   ℹ️  This URL starts with 'storage.kegeosapps.com'");
+        Console.WriteLine("   ⚠️  Browsers can't access internal endpoints - CONNECTION REFUSED\n");
+
+        // ✅ RIGHT WAY - Using public endpoint client via factory
+        Console.WriteLine("✅ CORRECT: Using public endpoint client (via factory)");
+        var publicClientForUrls = OmnixStorageClientFactory.CreatePublicEndpointClient(
+            publicEndpoint: "https://storage-public.kegeosapps.com",
+            accessKey: accessKey,
+            secretKey: secretKey,
+            region: "us-east-1"
+        );
+
+        var correctUrlResult = await publicClientForUrls.PresignedGetObjectAsync(
             new PresignedGetObjectArgs()
                 .WithBucket(photoTestBucket)
                 .WithObject(photoObjectKey)
                 .WithExpiry(3600));
 
-        string presignedUrl = presignedResult.Url;
+        string correctUrl = correctUrlResult.Url;
+        Console.WriteLine($"   URL: {correctUrl.Substring(0, Math.Min(100, correctUrl.Length))}...");
+        Console.WriteLine("   ✓ This URL starts with 'https://storage-public.kegeosapps.com'");
+        Console.WriteLine("   ✓ Browsers CAN access public endpoints - WORKS!\n");
 
         Console.WriteLine("=".PadRight(80, '='));
         Console.WriteLine("✓ PRESIGNED URL (Copy and paste in browser to view photo):");
         Console.WriteLine("=".PadRight(80, '='));
         Console.WriteLine();
-        Console.WriteLine(presignedUrl);
+        Console.WriteLine(correctUrl);
         Console.WriteLine();
         Console.WriteLine("=".PadRight(80, '='));
         Console.WriteLine();
@@ -397,7 +427,7 @@ try
         Console.WriteLine("Test 1: Presigned URL with expiry > 604800 seconds (should fail server-side)");
         try
         {
-            var invalidResult = await client.PresignedGetObjectAsync(
+            var invalidResult = await publicClientForUrls.PresignedGetObjectAsync(
                 new PresignedGetObjectArgs()
                     .WithBucket(photoTestBucket)
                     .WithObject(photoObjectKey)
@@ -412,7 +442,7 @@ try
 
         // Test 2: Presigned URL with minimum expiry (1 second)
         Console.WriteLine("Test 2: Presigned URL with minimum expiry (1 second)");
-        var minExpiryResult = await client.PresignedGetObjectAsync(
+        var minExpiryResult = await publicClientForUrls.PresignedGetObjectAsync(
             new PresignedGetObjectArgs()
                 .WithBucket(photoTestBucket)
                 .WithObject(photoObjectKey)
@@ -423,7 +453,7 @@ try
 
         // Test 3: Presigned URL for non-existent object
         Console.WriteLine("Test 3: Presigned URL for non-existent object (URL works, object not found on access)");
-        var nonExistentResult = await client.PresignedGetObjectAsync(
+        var nonExistentResult = await publicClientForUrls.PresignedGetObjectAsync(
             new PresignedGetObjectArgs()
                 .WithBucket(photoTestBucket)
                 .WithObject("images/does-not-exist.jpg")
@@ -439,19 +469,19 @@ try
         // Test presigned GET URL access
         Console.WriteLine();
         Console.WriteLine("=".PadRight(80, '='));
-        Console.WriteLine("Testing Presigned GET URL Access");
+        Console.WriteLine("Testing Presigned GET URL Access (from browser perspective)");
         Console.WriteLine("=".PadRight(80, '='));
         Console.WriteLine();
 
-        Console.WriteLine($"→ Accessing presigned URL: {presignedUrl.Substring(0, Math.Min(80, presignedUrl.Length))}...\n");
-        Console.WriteLine($"   Total URL length: {presignedUrl.Length} chars");
-        Console.WriteLine($"   Full URL: {presignedUrl}\n");
+        Console.WriteLine($"→ Accessing presigned URL: {correctUrl.Substring(0, Math.Min(80, correctUrl.Length))}...\n");
+        Console.WriteLine($"   Total URL length: {correctUrl.Length} chars");
+        Console.WriteLine($"   Full URL: {correctUrl}\n");
         var httpClient = new HttpClient();
-        httpClient.DefaultRequestHeaders.Add("User-Agent", "OmnixStorage-Test/1.0");
+        httpClient.DefaultRequestHeaders.Add("User-Agent", "EdgeSentience-Browser-Test/1.0");
 
         try
         {
-            var getResponse = await httpClient.GetAsync(new Uri(presignedUrl));
+            var getResponse = await httpClient.GetAsync(new Uri(correctUrl));
             Console.WriteLine($"✓ Response Status Code: {(int)getResponse.StatusCode} {getResponse.StatusCode}");
             
             if (getResponse.IsSuccessStatusCode)
