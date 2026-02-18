@@ -13,6 +13,12 @@ var client = new OmnixStorageClientBuilder()
     .Build();
 ```
 
+## 1.1 Optional Integration Wrapper
+
+```csharp
+var integration = new OmnixStorageIntegrationService(client);
+```
+
 ## 2. Generate Presigned URLs (Public Endpoint)
 
 Use a public endpoint client so URLs work from browsers without replacement.
@@ -55,6 +61,15 @@ await client.GetObjectAsync(
 var exists = await client.BucketExistsAsync("photos");
 ```
 
+### Ensure Bucket Exists (with retries)
+
+```csharp
+await client.EnsureBucketExistsAsync(
+    bucketName: "photos",
+    maxAttempts: 3,
+    delaySeconds: 2);
+```
+
 ## 4. Copy and Batch Delete
 
 ```csharp
@@ -69,6 +84,25 @@ var deleteResult = await client.RemoveObjectsAsync(
     new RemoveObjectsArgs()
         .WithBucket("photos")
         .WithObjects("cam_2/old1.jpg", "cam_2/old2.jpg"));
+```
+
+## 4.1 Wrapper Convenience Examples
+
+```csharp
+var presignedGetUrl = await integration.GetPresignedDownloadUrlAsync(
+    bucketName: "photos",
+    objectKey: "cam_2/photo1.jpg",
+    expirySeconds: 3600);
+
+await integration.UploadFileAsync(
+    bucketName: "photos",
+    objectKey: "cam_2/upload.jpg",
+    fileContent: stream,
+    contentType: "image/jpeg");
+
+await integration.DeleteFileAsync(
+    bucketName: "photos",
+    objectKey: "cam_2/old.jpg");
 ```
 
 ## 5. Multipart Upload
