@@ -342,8 +342,8 @@ None - fully backward compatible with v1.x
 ## Support
 
 For EdgeSentience integration questions:
-- **Documentation:** See [SDK-INTEGRATION-GUIDE.md](./SDK-INTEGRATION-GUIDE.md)
-- **Examples:** Check [omnixstorage_v1.2.md](./omnixstorage_v1.2.md)
+- **Documentation:** See [SDK-INTEGRATION-GUIDE.md](../SDK-INTEGRATION-GUIDE.md)
+- **Examples:** Check [omnixstorage_v2.0.md](./omnixstorage_v2.0.md)
 - **Test Code:** Review [tests/OmnixStorage.Tests/Program.cs](./tests/OmnixStorage.Tests/Program.cs)
 
 ---

@@ -1,4 +1,4 @@
-# OmnixStorage Implementation Documentation v1.2
+# OmnixStorage Implementation Documentation v2.0
 
 ## Overview
 

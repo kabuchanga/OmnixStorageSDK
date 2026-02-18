@@ -1,7 +1,7 @@
 # OmnixStorage SDK - Quick Reference Guide
 
-**Version:** 1.0.2 (Improved)  
-**Target:** .NET Standard 2.0+, .NET 6.0+  
+**Version:** 2.0.0  
+**Target:** .NET 10.0+  
 **Authentication:** AWS Signature Version 4
 
 ---
@@ -16,7 +16,7 @@ Install-Package OmnixStorage
 dotnet add package OmnixStorage
 
 # Package Reference
-<PackageReference Include="OmnixStorage" Version="1.0.2" />
+<PackageReference Include="OmnixStorage" Version="2.0.0" />
 ```
 
 ---
@@ -577,12 +577,22 @@ public async Task DeleteObjectsBatchAsync(string bucket, IEnumerable<string> key
 
 ## Version History
 
+- **2.0.0** (2026-02-18)
+  - ✅ OmnixStorageClientFactory for public endpoint clients
+  - ✅ OmnixStorageIntegrationService convenience wrapper
+  - ✅ EnsureBucketExistsAsync with retry logic
+  - ✅ HealthCheckBucketsAsync extension method
+  - ✅ CopyObjectAsync implementation
+  - ✅ Empty-body fix for copy/multipart operations
+  - ✅ Full XML documentation for IntelliSense
+  - ✅ Comprehensive test suite
+
 - **1.0.2** (2026-02-18)
-  - ✅ Performance optimization with ReadOnlySpan<byte>
-  - ✅ Enhanced error handling with retry context
-  - ✅ Comprehensive XML documentation
-  - ✅ .NET Standard 2.0 compatibility
-  - ✅ Removed debug logging
+  - Performance optimization with ReadOnlySpan<byte>
+  - Enhanced error handling with retry context
+  - Comprehensive XML documentation
+  - .NET Standard 2.0 compatibility
+  - Removed debug logging
 
 - **1.0.1** (Previous)
   - Initial AWS SigV4 implementation

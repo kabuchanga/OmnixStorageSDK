@@ -1,7 +1,7 @@
 # OmnixStorage SDK Improvements Summary
 
 **Date:** February 18, 2026  
-**Version:** 1.0.2 (Improved)  
+**Version:** 2.0.0  
 **Based on:** Analysis of Minio.NET SDK architecture and AWS SigV4 best practices
 
 ---
