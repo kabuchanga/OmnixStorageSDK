@@ -28,6 +28,17 @@ dotnet nuget add source "E:\google_drive\code\donet\OmnixStorageSDK\omnix-storag
 dotnet add package OmnixStorage --version 2.0.0
 ```
 
+### Team Verification (Must Pass)
+
+```powershell
+# Confirm the feed exists
+dotnet nuget list source
+
+# Confirm package version resolved in EdgeSentience project
+dotnet list package | Select-String "OmnixStorage"
+# Expected: OmnixStorage 2.0.0
+```
+
 ### Option 3: Manual Reference (For Development)
 
 Add this to your `.csproj` file:
@@ -60,30 +71,17 @@ var client = new OmnixStorageClientBuilder()
     .Build();
 ```
 
-### 2. Using the Integration Service Wrapper
+### 2. Using EdgeSentienceStorageService (Recommended)
 
 ```csharp
-using OmnixStorage;
+using EdgeSentience.Storage;
 
-// Create internal endpoint client
-var internalClient = new OmnixStorageClientBuilder()
-    .WithEndpoint("storage.kegeosapps.com", 443, useSSL: true)
-    .WithCredentials("edge-app-key", "edge-app-secret")
-    .WithRegion("us-east-1")
-    .Build();
-
-// Create public endpoint client for browser-safe presigned URLs
-var publicClient = OmnixStorageClientFactory.CreatePublicEndpointClient(
+var storageService = new EdgeSentienceStorageService(
+    internalEndpoint: "storage.kegeosapps.com:443",
     publicEndpoint: "https://storage-public.kegeosapps.com",
     accessKey: "edge-app-key",
     secretKey: "edge-app-secret",
-    region: "us-east-1"
-);
-
-// Initialize integration service
-var storageService = new OmnixStorageIntegrationService(
-    internalClient,
-    publicClient,
+    region: "us-east-1",
     defaultBucket: "edge-sentience-data"
 );
 
@@ -91,14 +89,15 @@ var storageService = new OmnixStorageIntegrationService(
 await storageService.EnsureBucketExistsAsync();
 
 // Get presigned upload URL (30-minute expiry)
-var uploadUrl = await storageService.GetPresignedUploadUrlAsync(
-    objectName: $"uploads/{tenantId}/{Guid.NewGuid()}.jpg"
+var uploadUrl = await storageService.GetUploadUrlAsync(
+    objectName: $"uploads/{tenantId}/{Guid.NewGuid()}.jpg",
+    expiryInSeconds: 1800
 );
 
-// Get presigned download URL (24-hour expiry)
-var downloadUrl = await storageService.GetPresignedDownloadUrlAsync(
+// Get presigned download URL (1-hour expiry)
+var downloadUrl = await storageService.GetDownloadUrlAsync(
     objectName: "reports/monthly-2026-02.pdf",
-    expiryInHours: 24
+    expiryInSeconds: 3600
 );
 
 // Upload file directly
@@ -116,6 +115,10 @@ await storageService.DeleteFileAsync(
 
 // Health check
 bool isHealthy = await storageService.HealthCheckAsync();
+
+// Guardrail behavior:
+// - URL generation is rejected if hostname resolves to an internal endpoint
+// - Hostname + expiry are logged for support diagnostics
 ```
 
 ### 3. Multi-Tenant Pattern
@@ -124,9 +127,9 @@ bool isHealthy = await storageService.HealthCheckAsync();
 // EdgeSentience tenant-specific storage paths
 public class TenantStorageService
 {
-    private readonly OmnixStorageIntegrationService _storage;
+    private readonly EdgeSentienceStorageService _storage;
     
-    public TenantStorageService(OmnixStorageIntegrationService storage)
+    public TenantStorageService(EdgeSentienceStorageService storage)
     {
         _storage = storage;
     }
@@ -134,13 +137,13 @@ public class TenantStorageService
     public async Task<string> GetUserUploadUrlAsync(string tenantId, string userId, string fileName)
     {
         var objectPath = $"tenants/{tenantId}/users/{userId}/uploads/{fileName}";
-        return await _storage.GetPresignedUploadUrlAsync(objectPath);
+        return await _storage.GetUploadUrlAsync(objectPath, expiryInSeconds: 1800);
     }
     
     public async Task<string> GetReportDownloadUrlAsync(string tenantId, string reportId)
     {
         var objectPath = $"tenants/{tenantId}/reports/{reportId}.pdf";
-        return await _storage.GetPresignedDownloadUrlAsync(objectPath, expiryInHours: 2);
+        return await _storage.GetDownloadUrlAsync(objectPath, expiryInSeconds: 7200);
     }
     
     public async Task ArchiveTenantDataAsync(string tenantId, string archivePath)
@@ -183,43 +186,16 @@ public static void ConfigureOmnixStorage(IServiceCollection services, IConfigura
 {
     var storageConfig = config.GetSection("OmnixStorage");
     
-    // Register internal client
-    services.AddSingleton<IOmnixStorageClient>(sp =>
+    // Register EdgeSentience dual-client wrapper with API guardrails
+    services.AddSingleton<EdgeSentienceStorageService>(sp =>
     {
-        var builder = new OmnixStorageClientBuilder()
-            .WithEndpoint(
-                storageConfig["InternalEndpoint"]!.Split(':')[0],
-                int.Parse(storageConfig["InternalEndpoint"]!.Split(':')[1]),
-                storageConfig.GetValue<bool>("UseSSL")
-            )
-            .WithCredentials(
-                storageConfig["AccessKey"]!,
-                storageConfig["SecretKey"]!
-            )
-            .WithRegion(storageConfig["Region"]!);
-        
-        return builder.Build();
-    });
-    
-    // Register public endpoint client
-    services.AddSingleton<IOmnixStorageClient>(sp =>
-    {
-        return OmnixStorageClientFactory.CreatePublicEndpointClient(
-            storageConfig["PublicEndpoint"]!,
-            storageConfig["AccessKey"]!,
-            storageConfig["SecretKey"]!,
-            storageConfig["Region"]!
-        );
-    });
-    
-    // Register integration service
-    services.AddSingleton<OmnixStorageIntegrationService>(sp =>
-    {
-        var clients = sp.GetServices<IOmnixStorageClient>().ToArray();
-        return new OmnixStorageIntegrationService(
-            clients[0], // internal client
-            clients[1], // public client
-            storageConfig["DefaultBucket"]!
+        return new EdgeSentienceStorageService(
+            internalEndpoint: storageConfig["InternalEndpoint"]!,
+            publicEndpoint: storageConfig["PublicEndpoint"]!,
+            accessKey: storageConfig["AccessKey"]!,
+            secretKey: storageConfig["SecretKey"]!,
+            region: storageConfig["Region"] ?? "us-east-1",
+            defaultBucket: storageConfig["DefaultBucket"] ?? "edge-sentience-data"
         );
     });
 }
@@ -237,6 +213,17 @@ dotnet list package | Select-String "OmnixStorage"
 
 # Should show:
 # > OmnixStorage    2.0.0
+```
+
+### 1.1 Validate Config Contract (Internal + Public Endpoints)
+
+```json
+{
+    "OmnixStorage": {
+        "InternalEndpoint": "storage.kegeosapps.com:443",
+        "PublicEndpoint": "https://storage-public.kegeosapps.com"
+    }
+}
 ```
 
 ### 2. Test Connection

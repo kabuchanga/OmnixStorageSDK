@@ -1,5 +1,6 @@
 using OmnixStorage;
 using OmnixStorage.Args;
+using System.Diagnostics;
 
 namespace EdgeSentience.Storage;
 
@@ -14,6 +15,8 @@ public class EdgeSentienceStorageService
     private readonly IOmnixStorageClient _publicClient;
     private readonly string _defaultBucket;
     private readonly string _publicEndpoint;
+    private readonly string _internalHost;
+    private readonly string _publicHost;
 
     /// <summary>
     /// Initialize EdgeSentience storage service with dual-client pattern for secure presigned URLs.
@@ -32,13 +35,31 @@ public class EdgeSentienceStorageService
         string region = "us-east-1",
         string defaultBucket = "edge-sentience-data")
     {
+        _internalHost = ParseHost(internalEndpoint);
+        _publicHost = ParseHost(publicEndpoint);
+
+        if (IsInternalHost(_publicHost))
+        {
+            throw new ArgumentException(
+                $"Public endpoint host '{_publicHost}' appears internal. Configure a browser-reachable public hostname.",
+                nameof(publicEndpoint));
+        }
+
+        if (string.Equals(_internalHost, _publicHost, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException(
+                "PublicEndpoint must be different from InternalEndpoint when generating browser-accessible presigned URLs.",
+                nameof(publicEndpoint));
+        }
+
         // Create internal client for S3 operations (service-to-service)
         var parts = internalEndpoint.Split(':');
         var host = parts[0];
         var port = parts.Length > 1 && int.TryParse(parts[1], out var p) ? p : 443;
 
         _internalClient = new OmnixStorageClientBuilder()
-            .WithEndpoint(host, port, useSSL: true)
+            .WithEndpoint($"{host}:{port}")
+            .WithSSL(true)
             .WithCredentials(accessKey, secretKey)
             .WithRegion(region)
             .Build();
@@ -53,6 +74,87 @@ public class EdgeSentienceStorageService
 
         _defaultBucket = defaultBucket;
         _publicEndpoint = publicEndpoint;
+    }
+
+    private static string ParseHost(string endpointOrUrl)
+    {
+        if (string.IsNullOrWhiteSpace(endpointOrUrl))
+        {
+            throw new ArgumentException("Endpoint value cannot be empty.", nameof(endpointOrUrl));
+        }
+
+        if (Uri.TryCreate(endpointOrUrl, UriKind.Absolute, out var absolute))
+        {
+            return absolute.Host;
+        }
+
+        if (Uri.TryCreate($"https://{endpointOrUrl}", UriKind.Absolute, out var withScheme))
+        {
+            return withScheme.Host;
+        }
+
+        throw new ArgumentException($"Invalid endpoint value: '{endpointOrUrl}'.", nameof(endpointOrUrl));
+    }
+
+    private static bool IsInternalHost(string host)
+    {
+        var normalized = host.Trim().ToLowerInvariant();
+
+        if (normalized == "localhost" || normalized == "127.0.0.1" || normalized == "::1")
+        {
+            return true;
+        }
+
+        if (normalized.EndsWith(".local") || normalized.EndsWith(".internal"))
+        {
+            return true;
+        }
+
+        if (normalized.StartsWith("10.") || normalized.StartsWith("192.168."))
+        {
+            return true;
+        }
+
+        if (normalized.StartsWith("172."))
+        {
+            var parts = normalized.Split('.');
+            if (parts.Length > 1 && int.TryParse(parts[1], out var secondOctet))
+            {
+                if (secondOctet >= 16 && secondOctet <= 31)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private string ValidateAndLogPresignedUrl(string url, int expiryInSeconds, string objectName)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            throw new InvalidOperationException("Generated presigned URL is not a valid absolute URL.");
+        }
+
+        var generatedHost = uri.Host;
+        if (IsInternalHost(generatedHost) ||
+            string.Equals(generatedHost, _internalHost, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Rejected presigned URL generation because host '{generatedHost}' is internal. Expected public host '{_publicHost}'.");
+        }
+
+        if (!string.Equals(generatedHost, _publicHost, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Rejected presigned URL generation because host '{generatedHost}' does not match configured public host '{_publicHost}'.");
+        }
+
+        Trace.WriteLine(
+            $"[OmnixStorage][PresignedUrl] host={generatedHost}; configuredPublicEndpoint={_publicEndpoint}; expirySeconds={expiryInSeconds}; bucket={_defaultBucket}; object={objectName}");
+
+        return url;
     }
 
     /// <summary>
@@ -112,7 +214,7 @@ public class EdgeSentienceStorageService
                 .WithExpiry(expiryInSeconds)
         );
 
-        return result.Url;
+        return ValidateAndLogPresignedUrl(result.Url, expiryInSeconds, objectName);
     }
 
     /// <summary>
@@ -140,7 +242,7 @@ public class EdgeSentienceStorageService
         }
 
         var result = await _publicClient.PresignedPutObjectAsync(args);
-        return result.Url;
+        return ValidateAndLogPresignedUrl(result.Url, expiryInSeconds, objectName);
     }
 
     /// <summary>
@@ -199,12 +301,15 @@ public class EdgeSentienceStorageService
     /// </summary>
     public async Task<List<(string Name, long Size)>> ListObjectsAsync(string? prefix = null, int maxResults = 1000)
     {
-        var result = await _internalClient.ListObjectsAsync(
-            new ListObjectsArgs()
-                .WithBucket(_defaultBucket)
-                .WithPrefix(prefix)
-                .WithRecursive(true)
-        );
+        var listArgs = new ListObjectsArgs()
+            .WithBucket(_defaultBucket);
+
+        if (!string.IsNullOrWhiteSpace(prefix))
+        {
+            listArgs.WithPrefix(prefix);
+        }
+
+        var result = await _internalClient.ListObjectsAsync(listArgs);
 
         return result.Objects
             .Take(maxResults)

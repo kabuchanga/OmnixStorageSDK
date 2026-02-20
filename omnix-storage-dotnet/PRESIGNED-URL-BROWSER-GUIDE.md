@@ -103,11 +103,15 @@ public class EdgeSentienceStorageService
     private readonly IOmnixStorageClient _publicClient;
     private readonly string _defaultBucket;
 
-    public EdgeSentienceStorageService(string publicEndpoint, string accessKey, string secretKey)
+    public EdgeSentienceStorageService(string internalEndpoint, string publicEndpoint, string accessKey, string secretKey)
     {
+        var endpointParts = internalEndpoint.Split(':');
+        var internalHost = endpointParts[0];
+        var internalPort = endpointParts.Length > 1 ? int.Parse(endpointParts[1]) : 443;
+
         // Create internal client for S3 operations
         _internalClient = new OmnixStorageClientBuilder()
-            .WithEndpoint("storage.kegeosapps.com", 443, useSSL: true)
+            .WithEndpoint(internalHost, internalPort, useSSL: true)
             .WithCredentials(accessKey, secretKey)
             .WithRegion("us-east-1")
             .Build();
@@ -321,6 +325,7 @@ var storageConfig = config.GetSection("OmnixStorage");
 
 // Register the storage service
 builder.Services.AddSingleton(sp => new EdgeSentienceStorageService(
+    internalEndpoint: storageConfig["InternalEndpoint"]!,
     publicEndpoint: storageConfig["PublicEndpoint"]!,
     accessKey: storageConfig["AccessKey"]!,
     secretKey: storageConfig["SecretKey"]!
@@ -329,6 +334,33 @@ builder.Services.AddSingleton(sp => new EdgeSentienceStorageService(
 var app = builder.Build();
 // ... rest of config
 ```
+
+### Required appsettings.json Contract
+
+```json
+{
+    "OmnixStorage": {
+        "InternalEndpoint": "storage.kegeosapps.com:443",
+        "PublicEndpoint": "https://storage-public.kegeosapps.com",
+        "AccessKey": "edge-app-access-key",
+        "SecretKey": "edge-app-secret-key",
+        "Region": "us-east-1",
+        "DefaultBucket": "edge-sentience-data",
+        "UseSSL": true
+    }
+}
+```
+
+### Smoke Test Runbook (EdgeSentience Environment)
+
+1. Upload one file with backend/internal client path.
+2. Generate one presigned GET URL through `EdgeSentienceStorageService.GetDownloadUrlAsync(...)`.
+3. Open the URL in browser and confirm HTTP 200 + file render/download.
+4. Confirm logs include hostname and expiry for support debugging.
+
+Expected outcomes:
+- URL host equals the configured `PublicEndpoint` host.
+- Any internal host is rejected by API guardrail with clear error.
 
 ---
 
