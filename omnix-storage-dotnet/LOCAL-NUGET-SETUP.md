@@ -1,12 +1,23 @@
-# OmnixStorage SDK - Local NuGet Integration Guide
+# OmnixStorage SDK - Local Package Integration Guide
 
 **Version:** 2.0.0  
-**Target Framework:** .NET 10.0  
-**Package Location:** `E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-dotnet\OmnixStorage.2.0.0.nupkg`
+**SDKs:** .NET 10.0 | Python 3.8+  
+**Package Locations:**
+- .NET: `E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-dotnet\OmnixStorage.2.0.0.nupkg`
+- Python: `E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-py\dist\omnix_storage-2.0.0-py3-none-any.whl`
 
 ---
 
-## Quick Start for EdgeSentience Team
+## Choose Your SDK
+
+- **[.NET Quick Start](#net-quick-start)** - For C# / ASP.NET Core applications
+- **[Python Quick Start](#python-quick-start)** - For Python applications
+
+---
+
+## .NET Quick Start
+
+### Quick Start for EdgeSentience Team
 
 ### Option 1: Install from Local File (Recommended for Testing)
 
@@ -305,9 +316,336 @@ var publicClient = OmnixStorageClientFactory.CreatePublicEndpointClient(
 
 ---
 
+## Python Quick Start
+
+### Installation from Local Wheel
+
+```bash
+# Install directly from the .whl file
+pip install E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-py\dist\omnix_storage-2.0.0-py3-none-any.whl
+
+# Verify installation
+pip show omnix-storage
+# Expected: Name: omnix-storage, Version: 2.0.0
+```
+
+### Alternative: Install from Source
+
+```bash
+# Navigate to Python SDK directory
+cd E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-py
+
+# Install in development mode
+pip install -e .
+```
+
+---
+
+## Python Integration Code Examples
+
+### 1. Basic Setup
+
+```python
+from omnixstorage import OmnixClient
+
+# Initialize client with dual endpoints
+client = OmnixClient(
+    endpoint="https://storage.kegeosapps.com",
+    public_endpoint="https://storage-public.kegeosapps.com",
+    access_key="your-access-key",
+    secret_key="your-secret-key",
+    use_https=True
+)
+```
+
+### 2. Dual-Client Pattern for EdgeSentience
+
+```python
+from omnixstorage import OmnixClient
+
+class EdgeSentienceStorageClient:
+    """Python equivalent of EdgeSentienceStorageService"""
+    
+    def __init__(self, internal_endpoint: str, public_endpoint: str,
+                 access_key: str, secret_key: str, default_bucket: str):
+        self.client = OmnixClient(
+            endpoint=internal_endpoint,
+            public_endpoint=public_endpoint,
+            access_key=access_key,
+            secret_key=secret_key,
+            use_https=True
+        )
+        self.default_bucket = default_bucket
+    
+    def ensure_bucket_exists(self):
+        """Idempotent bucket creation"""
+        return self.client.ensure_bucket_exists(self.default_bucket)
+    
+    def get_upload_url(self, object_name: str, expiry_seconds: int = 1800) -> str:
+        """Get presigned PUT URL (browser-safe, uses public_endpoint)"""
+        return self.client.presigned_put_object(
+            self.default_bucket, 
+            object_name, 
+            expiry_seconds=expiry_seconds
+        )
+    
+    def get_download_url(self, object_name: str, expiry_seconds: int = 3600) -> str:
+        """Get presigned GET URL (browser-safe, uses public_endpoint)"""
+        return self.client.presigned_get_object(
+            self.default_bucket, 
+            object_name, 
+            expiry_seconds=expiry_seconds
+        )
+    
+    def upload_file(self, object_name: str, file_data: bytes, content_type: str = "application/octet-stream"):
+        """Upload file directly"""
+        self.client.put_object(self.default_bucket, object_name, file_data, content_type)
+    
+    def delete_file(self, object_name: str, ignore_not_found: bool = True):
+        """Delete file with optional ignore-not-found"""
+        try:
+            self.client.remove_object(self.default_bucket, object_name)
+        except Exception as e:
+            if not ignore_not_found:
+                raise
+    
+    def health_check(self) -> bool:
+        """Check storage connectivity"""
+        try:
+            buckets = list(self.client.health_check_buckets([self.default_bucket]))
+            return len(buckets) > 0 and buckets[0]["accessible"]
+        except Exception:
+            return False
+
+# Usage
+storage = EdgeSentienceStorageClient(
+    internal_endpoint="https://storage.kegeosapps.com",
+    public_endpoint="https://storage-public.kegeosapps.com",
+    access_key="edge-app-key",
+    secret_key="edge-app-secret",
+    default_bucket="edge-sentience-data"
+)
+
+storage.ensure_bucket_exists()
+
+# Get presigned URLs (browser-safe, uses public endpoint)
+upload_url = storage.get_upload_url(f"uploads/{tenant_id}/file.jpg", expiry_seconds=1800)
+download_url = storage.get_download_url("reports/monthly-2026-02.pdf", expiry_seconds=3600)
+```
+
+### 3. Multi-Tenant Pattern (Python)
+
+```python
+from datetime import datetime
+
+class TenantStorageService:
+    """Python equivalent of multi-tenant storage"""
+    
+    def __init__(self, storage_client: EdgeSentienceStorageClient):
+        self.storage = storage_client
+    
+    def get_user_upload_url(self, tenant_id: str, user_id: str, file_name: str) -> str:
+        object_path = f"tenants/{tenant_id}/users/{user_id}/uploads/{file_name}"
+        return self.storage.get_upload_url(object_path, expiry_seconds=1800)
+    
+    def get_report_download_url(self, tenant_id: str, report_id: str) -> str:
+        object_path = f"tenants/{tenant_id}/reports/{report_id}.pdf"
+        return self.storage.get_download_url(object_path, expiry_seconds=7200)
+    
+    def archive_tenant_data(self, tenant_id: str):
+        """Archive tenant data to time-stamped folder"""
+        source_prefix = f"tenants/{tenant_id}/"
+        archive_date = datetime.utcnow().strftime("%Y-%m-%d")
+        target_prefix = f"archives/{tenant_id}/{archive_date}/"
+        
+        # List all objects for tenant
+        objects = self.storage.client.list_objects(
+            self.storage.default_bucket, 
+            prefix=source_prefix,
+            recursive=True
+        )
+        
+        # Copy each object to archive
+        for obj in objects:
+            source_name = obj["name"]
+            target_name = source_name.replace(source_prefix, target_prefix, 1)
+            self.storage.client.copy_object(
+                self.storage.default_bucket,
+                target_name,
+                self.storage.default_bucket,
+                source_name
+            )
+```
+
+### 4. Configuration Pattern (Python)
+
+```python
+# config.py
+import os
+from dataclasses import dataclass
+
+@dataclass
+class OmnixStorageConfig:
+    internal_endpoint: str
+    public_endpoint: str
+    access_key: str
+    secret_key: str
+    default_bucket: str
+    use_ssl: bool = True
+
+def load_config_from_env() -> OmnixStorageConfig:
+    """Load from environment variables"""
+    return OmnixStorageConfig(
+        internal_endpoint=os.environ["OMNIX_INTERNAL_ENDPOINT"],
+        public_endpoint=os.environ["OMNIX_PUBLIC_ENDPOINT"],
+        access_key=os.environ["OMNIX_ACCESS_KEY"],
+        secret_key=os.environ["OMNIX_SECRET_KEY"],
+        default_bucket=os.environ.get("OMNIX_DEFAULT_BUCKET", "edge-sentience-data"),
+        use_ssl=os.environ.get("OMNIX_USE_SSL", "true").lower() == "true"
+    )
+
+# Usage in application
+config = load_config_from_env()
+storage = EdgeSentienceStorageClient(
+    internal_endpoint=config.internal_endpoint,
+    public_endpoint=config.public_endpoint,
+    access_key=config.access_key,
+    secret_key=config.secret_key,
+    default_bucket=config.default_bucket
+)
+```
+
+---
+
+## Python Verification Steps
+
+### 1. Verify Installation
+
+```bash
+pip show omnix-storage
+# Expected output:
+# Name: omnix-storage
+# Version: 2.0.0
+```
+
+### 2. Test Connection
+
+```python
+from omnixstorage import OmnixClient
+
+client = OmnixClient(
+    endpoint="https://storage.kegeosapps.com",
+    access_key="your-key",
+    secret_key="your-secret",
+    use_https=True
+)
+
+# Test bucket access
+exists = client.bucket_exists("edge-sentience-data")
+print(f"Bucket accessible: {exists}")
+```
+
+### 3. Test Presigned URL Generation
+
+```python
+client = OmnixClient(
+    endpoint="https://storage.kegeosapps.com",
+    public_endpoint="https://storage-public.kegeosapps.com",
+    access_key="your-key",
+    secret_key="your-secret",
+    use_https=True
+)
+
+# Generate browser-safe presigned PUT URL
+url = client.presigned_put_object(
+    "edge-sentience-data",
+    "test.txt",
+    expiry_seconds=3600
+)
+
+print(f"Upload URL: {url}")
+# Should start with: https://storage-public.kegeosapps.com/edge-sentience-data/test.txt?X-Amz-Algorithm=...
+```
+
+### 4. Run Comprehensive Tests
+
+```bash
+# Navigate to Python SDK directory
+cd E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-py
+
+# Run parity tests
+pytest tests/test_presigned_parity.py -v
+
+# Run integration smoke tests
+pytest tests/test_integration_smoke.py -v
+
+# Expected: 6 passed, 1 xfailed (known server 405 endpoint)
+```
+
+---
+
+## Python Troubleshooting
+
+### Issue: "No module named 'omnixstorage'"
+
+**Solution:**
+```bash
+# Verify installation
+pip list | grep omnix-storage
+
+# If not found, reinstall
+pip install E:\google_drive\code\donet\OmnixStorageSDK\omnix-storage-py\dist\omnix_storage-2.0.0-py3-none-any.whl
+```
+
+### Issue: Presigned URLs not accessible from browser
+
+**Solution:** Ensure `public_endpoint` is configured for browser-safe URLs:
+
+```python
+# ❌ Wrong - no public endpoint
+client = OmnixClient(
+    endpoint="https://internal-storage.local",
+    access_key="...",
+    secret_key="..."
+)
+
+# ✅ Correct - public endpoint configured
+client = OmnixClient(
+    endpoint="https://internal-storage.local",
+    public_endpoint="https://storage-public.example.com",  # Browser-accessible
+    access_key="...",
+    secret_key="..."
+)
+```
+
+### Issue: "InvalidHostError: Internal host detected"
+
+**Solution:** This is a guardrail preventing internal endpoint leaks. Use a public endpoint:
+
+```python
+# Fix: Configure public_endpoint parameter
+client = OmnixClient(
+    endpoint="https://storage.internal.local",
+    public_endpoint="https://storage.example.com",  # Add this
+    access_key="...",
+    secret_key="..."
+)
+```
+
+---
+
+## Python API Reference
+
+For comprehensive Python SDK documentation, samples, and API reference, see:
+- **[omnix-storage-py/README.md](../omnix-storage-py/README.md)** - Full Python SDK documentation
+- **[tests/test_presigned_parity.py](../omnix-storage-py/tests/test_presigned_parity.py)** - Presigned URL tests
+- **[tests/test_integration_smoke.py](../omnix-storage-py/tests/test_integration_smoke.py)** - Integration examples
+
+---
+
 ## What's New in v2.0.0
 
-### New Features
+### .NET SDK Features
 - ✅ **OmnixStorageClientFactory**: Helper for creating public endpoint clients
 - ✅ **OmnixStorageIntegrationService**: Convenience wrapper with common operations
 - ✅ **EnsureBucketExistsAsync**: Extension method with retry logic
@@ -316,27 +654,56 @@ var publicClient = OmnixStorageClientFactory.CreatePublicEndpointClient(
 - ✅ **Empty-body fix**: Server compatibility for copy/multipart operations
 - ✅ **XML Documentation**: Full IntelliSense support
 
-### Breaking Changes
-None - fully backward compatible with v1.x
+### Python SDK Features
+- ✅ **Local AWS SigV4 Signing**: Browser-safe presigned URLs with public endpoint support
+- ✅ **presigned_get_object / presigned_put_object**: Generate browser-accessible URLs
+- ✅ **Extended Operations**: copy_object, remove_objects (batch delete), multipart lifecycle
+- ✅ **Guardrails**: Host validation preventing internal endpoint leaks
+- ✅ **ensure_bucket_exists**: Idempotent bucket creation
+- ✅ **health_check_buckets**: Connectivity validation
+- ✅ **Comprehensive Tests**: 6 passing tests with edge-case validation
 
-### Server Limitations (Known)
-- Batch delete (`RemoveObjectsAsync`) returns 405 MethodNotAllowed
-- Multipart upload operations return 405 MethodNotAllowed
+### Breaking Changes
+None - both SDKs fully backward compatible with v1.x
+
+### Server Limitations (Known - Affects Both SDKs)
+- Batch delete (`RemoveObjectsAsync` / `remove_objects`) returns 405 MethodNotAllowed on some endpoints
+- Multipart upload operations return 405 MethodNotAllowed on some endpoints
 - These are server-side limitations, not SDK issues
+- Test suites use `xfail` markers to document expected behavior
 
 ---
 
 ## Support
 
-For EdgeSentience integration questions:
+### .NET SDK Resources
 - **Documentation:** See [SDK-INTEGRATION-GUIDE.md](../SDK-INTEGRATION-GUIDE.md)
 - **Examples:** Check [omnixstorage_v2.0.md](./omnixstorage_v2.0.md)
 - **Test Code:** Review [tests/OmnixStorage.Tests/Program.cs](./tests/OmnixStorage.Tests/Program.cs)
 
+### Python SDK Resources  
+- **Full Documentation:** See [omnix-storage-py/README.md](../omnix-storage-py/README.md)
+- **Presigned URL Tests:** Check [omnix-storage-py/tests/test_presigned_parity.py](../omnix-storage-py/tests/test_presigned_parity.py)
+- **Integration Tests:** Review [omnix-storage-py/tests/test_integration_smoke.py](../omnix-storage-py/tests/test_integration_smoke.py)
+
+### General Resources
+- **Release Notes:** See [SDK-IMPROVEMENTS-SUMMARY.md](../SDK-IMPROVEMENTS-SUMMARY.md)
+- **Browser Guide:** See [PRESIGNED-URL-BROWSER-GUIDE.md](./PRESIGNED-URL-BROWSER-GUIDE.md)
+
 ---
 
 **Package Details:**
+
+**.NET Package:**
 - **File:** `OmnixStorage.2.0.0.nupkg`
 - **Size:** ~50 KB
+- **Framework:** .NET 10.0
 - **Created:** February 18, 2026
 - **Dependencies:** None (uses only standard .NET libraries)
+
+**Python Package:**
+- **Files:** `omnix_storage-2.0.0-py3-none-any.whl`, `omnix_storage-2.0.0.tar.gz`
+- **Size:** ~30 KB
+- **Python:** 3.8+
+- **Created:** February 20, 2026
+- **Dependencies:** httpx>=0.24.0, python-dateutil>=2.8.2

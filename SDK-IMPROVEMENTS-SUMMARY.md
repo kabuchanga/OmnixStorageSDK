@@ -14,6 +14,36 @@ The OmnixStorage .NET SDK has been comprehensively improved based on findings fr
 
 ---
 
+## Release Notes (v2.0.0 Parity)
+
+### .NET SDK
+
+- Added `EdgeSentienceStorageService` dual-client rollout pattern (internal endpoint for backend operations, public endpoint for browser presigned URLs).
+- Added API guardrails to reject presigned URL generation when the resolved hostname is internal or mismatched with configured public host.
+- Added support diagnostics logging for presigned URL host and expiry.
+- Updated integration documentation and local package onboarding for EdgeSentience rollout.
+
+### Python SDK
+
+- Added presigned `GET` and `PUT` local SigV4 generation to align with .NET behavior.
+- Added `public_endpoint` browser-safe URL support with guardrails against internal host usage.
+- Added parity helpers: `ensure_bucket_exists` and `health_check_buckets`.
+- Added extended operations parity coverage: copy object, batch delete, multipart initiate/upload/complete/abort.
+- Updated Python package version metadata to `2.0.0`.
+
+### Test Validation Summary
+
+- .NET integration suite executed successfully for CRUD, presigned URL generation, edge-case validation, and guardrail parity checks.
+- Python parity suite executed with `6 passed, 1 xfailed`:
+    - `xfailed` is expected for known server-side unsupported endpoint behavior (`405 MethodNotAllowed`) and is tracked as an environment capability gap, not an SDK defect.
+
+### Known Environment Limitations
+
+- Some environments return `405 MethodNotAllowed` for batch delete and multipart endpoints.
+- Browser/HTTP smoke checks may fail with TLS handshake errors depending on local certificate/network setup.
+
+---
+
 ## Improvements Implemented
 
 ### 1. ✅ Removed Debug Logging from Production Code

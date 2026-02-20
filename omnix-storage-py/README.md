@@ -1,33 +1,3 @@
-Metadata-Version: 2.4
-Name: omnix-storage
-Version: 2.0.0
-Summary: S3-compatible Python SDK for OmnixStorage distributed object storage
-Home-page: https://github.com/kegeo-solutions/omnix-storage-py
-Author: Kegeo Solutions Ltd
-Author-email: Kegeo Solutions Ltd <info@kegeo.com>
-License: Apache-2.0
-Project-URL: Homepage, https://github.com/kegeos-io/omnix-storage-py
-Project-URL: Documentation, https://kegeos-omnixstorage.readthedocs.io/
-Project-URL: Repository, https://github.com/kegeos-io/omnix-storage-py
-Project-URL: Issues, https://github.com/kegeos-io/omnix-storage-py/issues
-Keywords: object-storage,s3,distributed-storage,omnix,storage-sdk
-Classifier: Development Status :: 4 - Beta
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
-Dynamic: author
-Dynamic: home-page
-Dynamic: requires-python
-
 # OmnixStorage Python SDK
 
 S3-compatible Python SDK for OmnixStorage with browser-safe presigned URL generation.
