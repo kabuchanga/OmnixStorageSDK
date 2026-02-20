@@ -1,6 +1,7 @@
 using OmnixStorage;
 using OmnixStorage.Args;
 using OmnixStorage.DataModel;
+using EdgeSentience.Storage;
 
 const string endpoint = "storage.kegeosapps.com:443";
 const string accessKey = "AKIATESAFEKEY0000001";
@@ -327,6 +328,23 @@ try
     var integration = new OmnixStorageIntegrationService(client);
     var presignedDownload = await integration.GetPresignedDownloadUrlAsync(opsBucket, copyDestKey, 300);
     Console.WriteLine($"✓ Integration presigned URL length: {presignedDownload.Length}\n");
+
+    Console.WriteLine("→ EdgeSentience guardrail parity test (internal public endpoint should fail)");
+    try
+    {
+        var _ = new EdgeSentienceStorageService(
+            internalEndpoint: endpoint,
+            publicEndpoint: "http://127.0.0.1:9000",
+            accessKey: accessKey,
+            secretKey: secretKey,
+            region: "us-east-1",
+            defaultBucket: opsBucket);
+        Console.WriteLine("⚠ Guardrail parity test failed: constructor accepted internal public endpoint\n");
+    }
+    catch (ArgumentException)
+    {
+        Console.WriteLine("✓ Guardrail parity test passed: internal public endpoint rejected\n");
+    }
 
     Console.WriteLine("=".PadRight(80, '='));
     Console.WriteLine("✓ ALL TESTS COMPLETED SUCCESSFULLY");

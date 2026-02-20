@@ -5,7 +5,7 @@ AWS Signature V4 signer for OmnixStorage SDK
 import hashlib
 import hmac
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, Optional
 from urllib.parse import quote
 
@@ -34,7 +34,7 @@ class AwsSignatureV4Signer:
         Sign a request and return headers with authorization.
         """
         if timestamp is None:
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(UTC)
         
         amz_date = timestamp.strftime("%Y%m%dT%H%M%SZ")
         datestamp = timestamp.strftime("%Y%m%d")
@@ -136,6 +136,7 @@ class AwsSignatureV4Signer:
         query_params: Optional[Dict[str, str]] = None,
         expires_in: int = 3600,
         expires_in_seconds: Optional[int] = None,
+        use_https: bool = False,
         timestamp: Optional[datetime] = None,
     ) -> str:
         """
@@ -143,9 +144,14 @@ class AwsSignatureV4Signer:
         """
         # Support both expires_in and expires_in_seconds for backward compatibility
         expiry = expires_in_seconds if expires_in_seconds is not None else expires_in
+
+        if expiry < 1 or expiry > 604800:
+            raise ValueError(
+                "Expiry must be between 1 second and 604800 seconds (7 days) per AWS S3 specification."
+            )
         
         if timestamp is None:
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(UTC)
         
         amz_date = timestamp.strftime("%Y%m%dT%H%M%SZ")
         datestamp = timestamp.strftime("%Y%m%d")
@@ -202,6 +208,7 @@ class AwsSignatureV4Signer:
         # Build presigned URL
         presigned_params["X-Amz-Signature"] = signature
         
-        url = f"http://{host}{path}"
+        scheme = "https" if use_https else "http"
+        url = f"{scheme}://{host}{path}"
         query_string = self._build_canonical_querystring(presigned_params)
         return f"{url}?{query_string}"

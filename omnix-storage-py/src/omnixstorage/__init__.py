@@ -2,7 +2,7 @@
 OmnixStorage Python SDK - S3-compatible client for OmnixStorage
 """
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 __author__ = "Kegeo Solutions Ltd"
 
 from .client import OmnixClient
